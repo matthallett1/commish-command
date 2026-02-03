@@ -17,5 +17,6 @@ oauth2.json
 .git/
 .gitignore
 
-# Data exports (will be regenerated)
+# Data exports (except database_export.json for deployment)
 data/*.json
+!data/database_export.json
