@@ -1,10 +1,9 @@
-"""Database models for Top Pot Dashboard."""
+"""Database models for Commish Command."""
 
 from .database import Base, engine, SessionLocal, get_db
 from .league import League, Season, Team, Member
 from .matchup import Matchup, Standing
 from .draft import DraftPick, Transaction
-from .chat import ChatMessage, ChatReaction, ChatStats
 
 __all__ = [
     "Base",
@@ -19,7 +18,4 @@ __all__ = [
     "Standing",
     "DraftPick",
     "Transaction",
-    "ChatMessage",
-    "ChatReaction",
-    "ChatStats",
 ]
