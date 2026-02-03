@@ -42,15 +42,10 @@ app.include_router(records.router, prefix="/api/records", tags=["Records"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database."""
+    """Initialize database only - no data import."""
+    print("Starting up...")
     init_db()
-    # Import is now done manually or via a separate endpoint
-    # to avoid startup issues
-    try:
-        from data_import import check_and_import
-        check_and_import()
-    except Exception as e:
-        print(f"Import failed (non-fatal): {e}")
+    print("Database initialized, app ready.")
 
 
 @app.get("/", tags=["Root"])
