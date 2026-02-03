@@ -8,14 +8,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import settings, DATA_DIR
 
-# Ensure data directory exists
+# Ensure data directory exists (for SQLite)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-# Create database engine
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False}  # Needed for SQLite
-)
+# Create database engine - use different settings for SQLite vs PostgreSQL
+if settings.database_url.startswith("sqlite"):
+    engine = create_engine(
+        settings.database_url,
+        connect_args={"check_same_thread": False}  # Needed for SQLite
+    )
+else:
+    # PostgreSQL or other databases
+    engine = create_engine(settings.database_url)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

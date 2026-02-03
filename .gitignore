@@ -18,8 +18,9 @@ backend/oauth2.json
 *.db
 data/*.db
 
-# Data exports
+# Data exports (except database_export.json for deployment)
 data/*.json
+!backend/data/database_export.json
 
 # Build outputs
 .next/

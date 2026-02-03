@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from api.routes import leagues, members, matchups, records
 from models.database import init_db
+from data_import import check_and_import
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,8 +43,10 @@ app.include_router(records.router, prefix="/api/records", tags=["Records"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup."""
+    """Initialize database and import data if needed."""
     init_db()
+    # Check if we need to import data from JSON export
+    check_and_import()
 
 
 @app.get("/", tags=["Root"])

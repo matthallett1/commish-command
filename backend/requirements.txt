@@ -10,15 +10,11 @@ python-multipart==0.0.6
 # Database
 sqlalchemy==2.0.25
 alembic==1.13.1
+psycopg2-binary==2.9.9
 
 # Data Processing
 pandas==2.2.0
 numpy==1.26.3
-
-# Chat Analytics
-nltk==3.8.1
-wordcloud==1.9.3
-textblob==0.18.0
 
 # Utilities
 python-dotenv==1.0.0
