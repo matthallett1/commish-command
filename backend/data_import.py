@@ -118,8 +118,9 @@ def import_from_json(db: Session, data: dict):
             winner_id=item.get("winner_id"),
             is_playoff=item.get("is_playoff", False),
             is_championship=item.get("is_championship", False),
-            margin=item.get("margin", 0),
-            total_points=item.get("total_points", 0),
+            point_differential=item.get("point_differential", 0),
+            is_close_game=item.get("is_close_game", False),
+            is_blowout=item.get("is_blowout", False),
         )
         db.merge(matchup)
     db.flush()
