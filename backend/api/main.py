@@ -6,7 +6,6 @@ Commish Command API
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import os
 
 # Create FastAPI app first - minimal
 app = FastAPI(
@@ -29,31 +28,20 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize app."""
-    print("Starting Commish Command API...")
-    print(f"PORT: {os.environ.get('PORT', 'not set')}")
-    print(f"DATABASE_URL exists: {bool(os.environ.get('DATABASE_URL'))}")
+    """Initialize database and load routes."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     
-    # Try to initialize database
-    try:
-        import sys
-        from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from models.database import init_db
-        init_db()
-        print("Database initialized successfully")
-        
-        # Include routers only after DB is ready
-        from api.routes import leagues, members, matchups, records
-        app.include_router(leagues.router, prefix="/api/leagues", tags=["Leagues"])
-        app.include_router(members.router, prefix="/api/members", tags=["Members"])
-        app.include_router(matchups.router, prefix="/api/matchups", tags=["Matchups"])
-        app.include_router(records.router, prefix="/api/records", tags=["Records"])
-        print("Routes loaded successfully")
-    except Exception as e:
-        print(f"Startup error: {e}")
-        import traceback
-        traceback.print_exc()
+    from models.database import init_db
+    init_db()
+    
+    # Include routers
+    from api.routes import leagues, members, matchups, records
+    app.include_router(leagues.router, prefix="/api/leagues", tags=["Leagues"])
+    app.include_router(members.router, prefix="/api/members", tags=["Members"])
+    app.include_router(matchups.router, prefix="/api/matchups", tags=["Matchups"])
+    app.include_router(records.router, prefix="/api/records", tags=["Records"])
 
 
 @app.get("/", tags=["Root"])

@@ -1,5 +1,5 @@
 /**
- * API client for the Top Pot Dashboard backend
+ * API client for the Commish Command backend
  */
 
 // Remove trailing slash from API URL if present
@@ -100,30 +100,3 @@ export async function getPowerRankings() {
   return fetchAPI<any>('/api/records/power-rankings');
 }
 
-// Chat endpoints
-export async function getChatStats() {
-  return fetchAPI<any>('/api/chat/stats');
-}
-
-export async function getChatLeaderboard() {
-  return fetchAPI<any>('/api/chat/leaderboard');
-}
-
-export async function getWordCloud(memberId?: number, limit = 100) {
-  const url = memberId 
-    ? `/api/chat/word-cloud?member_id=${memberId}&limit=${limit}`
-    : `/api/chat/word-cloud?limit=${limit}`;
-  return fetchAPI<any>(url);
-}
-
-export async function getActivityTimeline(period: 'day' | 'week' | 'month' | 'year' = 'month') {
-  return fetchAPI<any>(`/api/chat/activity-timeline?period=${period}`);
-}
-
-export async function getPersonas() {
-  return fetchAPI<any>('/api/chat/personas');
-}
-
-export async function getChatHighlights(limit = 10) {
-  return fetchAPI<any>(`/api/chat/highlights?limit=${limit}`);
-}
