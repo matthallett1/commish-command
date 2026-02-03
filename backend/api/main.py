@@ -21,7 +21,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -37,11 +37,12 @@ async def startup_event():
     init_db()
     
     # Include routers
-    from api.routes import leagues, members, matchups, records
+    from api.routes import leagues, members, matchups, records, ai
     app.include_router(leagues.router, prefix="/api/leagues", tags=["Leagues"])
     app.include_router(members.router, prefix="/api/members", tags=["Members"])
     app.include_router(matchups.router, prefix="/api/matchups", tags=["Matchups"])
     app.include_router(records.router, prefix="/api/records", tags=["Records"])
+    app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 
 
 @app.get("/", tags=["Root"])
@@ -57,6 +58,7 @@ async def root():
             "members": "/api/members",
             "matchups": "/api/matchups",
             "records": "/api/records",
+            "ai": "/api/ai",
         }
     }
 

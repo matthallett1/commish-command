@@ -55,6 +55,10 @@ export async function getMemberRivalries(id: number) {
   return fetchAPI<any>(`/api/members/${id}/rivalries`);
 }
 
+export async function getMemberNotableEvents(id: number) {
+  return fetchAPI<any>(`/api/members/${id}/notable-events`);
+}
+
 // Matchup endpoints
 export async function getSeasonMatchups(year: number, week?: number) {
   const url = week 
@@ -98,5 +102,111 @@ export async function getLuckAnalysis() {
 
 export async function getPowerRankings() {
   return fetchAPI<any>('/api/records/power-rankings');
+}
+
+export async function getSeasonRecords(year: number) {
+  return fetchAPI<any>(`/api/records/season/${year}`);
+}
+
+// AI endpoints
+export async function checkAIStatus(): Promise<{ available: boolean; provider: string | null; model: string | null }> {
+  return fetchAPI('/api/ai/status');
+}
+
+export async function getAISummary(
+  pageType: string,
+  context: Record<string, unknown>
+): Promise<{ narrative: string; page_type: string; model?: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/summary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      page_type: pageType,
+      context,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Failed to generate summary' }));
+    throw new Error(error.detail || `API error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface BlockInsight {
+  block_type: string;
+  context: Record<string, unknown>;
+  member_context?: Record<string, unknown>;
+}
+
+export async function getBlockInsight(
+  blockType: string,
+  context: Record<string, unknown>,
+  memberContext?: Record<string, unknown>
+): Promise<{ narrative: string; block_type: string; model: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/block-insight`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      block_type: blockType,
+      context,
+      member_context: memberContext,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Failed to generate insight' }));
+    throw new Error(error.detail || `API error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function getBatchInsights(
+  blocks: BlockInsight[]
+): Promise<{ insights: Record<string, string>; model: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/batch-insights`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ blocks }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Failed to generate insights' }));
+    throw new Error(error.detail || `API error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// Ask the Commish
+export async function askCommish(
+  question: string
+): Promise<{ answer: string; sources_used: string[]; model: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/ask`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ question }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Failed to get answer' }));
+    throw new Error(error.detail || `API error: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function getExampleQuestions(): Promise<{ questions: string[] }> {
+  return fetchAPI('/api/ai/example-questions');
 }
 

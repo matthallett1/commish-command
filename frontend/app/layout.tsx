@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Navigation from '@/components/Navigation';
+import AskTheCommish from '@/components/AskTheCommish';
 
 export const metadata: Metadata = {
   title: 'Commish Command - Fantasy Football Dashboard',
@@ -27,6 +28,7 @@ export default function RootLayout({
               </p>
             </div>
           </footer>
+          <AskTheCommish />
         </div>
       </body>
     </html>

@@ -247,3 +247,134 @@ async def get_member_rivalries(member_id: int, db: Session = Depends(get_db)):
         "member": h2h_data["member"],
         "rivalries": rivalries[:5]  # Top 5 rivals
     }
+
+
+@router.get("/{member_id}/notable-events")
+async def get_member_notable_events(member_id: int, db: Session = Depends(get_db)):
+    """Get notable events/achievements for a member."""
+    member = db.query(Member).filter(Member.id == member_id).first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Get all teams for this member
+    member_teams = db.query(Team).filter(Team.member_id == member_id).all()
+    member_team_ids = [t.id for t in member_teams]
+    
+    # Get all matchups involving this member
+    matchups = db.query(Matchup).filter(
+        (Matchup.team1_id.in_(member_team_ids)) | (Matchup.team2_id.in_(member_team_ids))
+    ).all()
+    
+    # Initialize trackers
+    highest_score = None
+    lowest_score = None
+    biggest_win = None
+    closest_win = None
+    worst_loss = None
+    championship_years = []
+    
+    for matchup in matchups:
+        season_year = matchup.season.year if matchup.season else None
+        
+        # Determine which side is ours
+        if matchup.team1_id in member_team_ids:
+            our_score = matchup.team1_score
+            our_team = matchup.team1
+            opp_score = matchup.team2_score
+            opp_team = matchup.team2
+        else:
+            our_score = matchup.team2_score
+            our_team = matchup.team2
+            opp_score = matchup.team1_score
+            opp_team = matchup.team1
+        
+        if not opp_team:
+            continue
+        
+        opp_name = opp_team.member.name if opp_team.member else "Unknown"
+        
+        # Track highest score
+        if our_score > 0:
+            if highest_score is None or our_score > highest_score["score"]:
+                highest_score = {
+                    "score": round(our_score, 2),
+                    "opponent": opp_name,
+                    "opponent_score": round(opp_score, 2),
+                    "year": season_year,
+                    "week": matchup.week,
+                    "won": our_score > opp_score,
+                }
+        
+        # Track lowest score
+        if our_score > 0:
+            if lowest_score is None or our_score < lowest_score["score"]:
+                lowest_score = {
+                    "score": round(our_score, 2),
+                    "opponent": opp_name,
+                    "opponent_score": round(opp_score, 2),
+                    "year": season_year,
+                    "week": matchup.week,
+                    "won": our_score > opp_score,
+                }
+        
+        # Track wins
+        if our_score > opp_score:
+            margin = our_score - opp_score
+            
+            # Biggest win
+            if biggest_win is None or margin > biggest_win["margin"]:
+                biggest_win = {
+                    "margin": round(margin, 2),
+                    "score": round(our_score, 2),
+                    "opponent": opp_name,
+                    "opponent_score": round(opp_score, 2),
+                    "year": season_year,
+                    "week": matchup.week,
+                }
+            
+            # Closest win
+            if closest_win is None or margin < closest_win["margin"]:
+                closest_win = {
+                    "margin": round(margin, 2),
+                    "score": round(our_score, 2),
+                    "opponent": opp_name,
+                    "opponent_score": round(opp_score, 2),
+                    "year": season_year,
+                    "week": matchup.week,
+                }
+        
+        # Track losses for worst loss
+        elif opp_score > our_score:
+            margin = opp_score - our_score
+            if worst_loss is None or margin > worst_loss["margin"]:
+                worst_loss = {
+                    "margin": round(margin, 2),
+                    "score": round(our_score, 2),
+                    "opponent": opp_name,
+                    "opponent_score": round(opp_score, 2),
+                    "year": season_year,
+                    "week": matchup.week,
+                }
+    
+    # Get championship years
+    for team in member_teams:
+        if team.is_champion and team.season:
+            championship_years.append({
+                "year": team.season.year,
+                "team_name": team.name,
+                "record": f"{team.wins}-{team.losses}",
+            })
+    
+    championship_years.sort(key=lambda x: x["year"], reverse=True)
+    
+    return {
+        "member": member.name,
+        "member_id": member.id,
+        "highest_score": highest_score,
+        "lowest_score": lowest_score,
+        "biggest_win": biggest_win,
+        "closest_win": closest_win,
+        "worst_loss": worst_loss,
+        "championship_years": championship_years,
+    }

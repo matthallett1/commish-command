@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface Champion {
   year: number;
   team_name: string;
@@ -22,12 +24,13 @@ export default function ChampionBanner({ champions }: ChampionBannerProps) {
       
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {champions.map((champion, index) => (
-          <div
+          <Link
             key={champion.year}
-            className={`relative p-4 rounded-lg text-center transition-transform hover:scale-105 ${
+            href={`/standings?year=${champion.year}`}
+            className={`relative p-4 rounded-lg text-center transition-all hover:scale-105 cursor-pointer ${
               index === 0 
-                ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 ring-2 ring-yellow-400'
-                : 'bg-gray-50 dark:bg-slate-700'
+                ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 ring-2 ring-yellow-400 hover:ring-yellow-500'
+                : 'bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600'
             }`}
           >
             <div className={`text-3xl mb-2 ${index === 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
@@ -47,7 +50,7 @@ export default function ChampionBanner({ champions }: ChampionBannerProps) {
                 {champion.record}
               </div>
             )}
-          </div>
+          </Link>
         ))}
       </div>
     </div>

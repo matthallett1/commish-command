@@ -177,6 +177,7 @@ async def get_standings(year: int, db: Session = Depends(get_db)):
                 "rank": team.final_rank or idx + 1,
                 "team_name": team.name,
                 "manager": team.member.name if team.member else "Unknown",
+                "member_id": team.member.id if team.member else None,
                 "record": f"{team.wins}-{team.losses}" + (f"-{team.ties}" if team.ties else ""),
                 "points_for": round(team.points_for, 2),
                 "points_against": round(team.points_against, 2),
@@ -194,21 +195,26 @@ async def get_champions(db: Session = Depends(get_db)):
     champions = db.query(Team).filter(Team.is_champion == True).all()
     
     # Group by member
-    member_championships = {}
+    member_championships = {}  # member_id -> {name, count}
     yearly_champions = []
     
     for champion in champions:
         member_name = champion.member.name if champion.member else "Unknown"
+        member_id = champion.member.id if champion.member else None
         
         yearly_champions.append({
             "year": champion.season.year if champion.season else None,
             "team_name": champion.name,
             "manager": member_name,
+            "member_id": member_id,
             "record": f"{champion.wins}-{champion.losses}",
             "points_for": round(champion.points_for, 2),
         })
         
-        member_championships[member_name] = member_championships.get(member_name, 0) + 1
+        if member_id:
+            if member_id not in member_championships:
+                member_championships[member_id] = {"name": member_name, "count": 0}
+            member_championships[member_id]["count"] += 1
     
     # Sort by year
     yearly_champions.sort(key=lambda x: x["year"] or 0, reverse=True)
@@ -216,14 +222,14 @@ async def get_champions(db: Session = Depends(get_db)):
     # Sort by championships
     championship_leaders = sorted(
         member_championships.items(),
-        key=lambda x: x[1],
+        key=lambda x: x[1]["count"],
         reverse=True
     )
     
     return {
         "yearly_champions": yearly_champions,
         "championship_leaders": [
-            {"member": name, "championships": count}
-            for name, count in championship_leaders
+            {"member": data["name"], "member_id": mid, "championships": data["count"]}
+            for mid, data in championship_leaders
         ]
     }

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Yahoo OAuth token file location
     yahoo_token_file: Path = Field(default=BACKEND_DIR / "oauth2.json")
     
+    # AI - Anthropic
+    anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    
     class Config:
         env_file = BACKEND_DIR / ".env"
         env_file_encoding = "utf-8"
@@ -45,6 +48,11 @@ class Settings(BaseSettings):
     def yahoo_credentials_configured(self) -> bool:
         """Check if Yahoo credentials are configured."""
         return bool(self.yahoo_client_id and self.yahoo_client_secret)
+    
+    @property
+    def anthropic_configured(self) -> bool:
+        """Check if Anthropic API key is configured."""
+        return bool(self.anthropic_api_key)
 
 
 # Global settings instance

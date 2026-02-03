@@ -59,7 +59,7 @@ export default function MatchupsPage() {
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
               activeTab === tab.id
-                ? 'bg-primary-600 text-white'
+                ? 'bg-pink-600 text-white'
                 : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
             }`}
           >

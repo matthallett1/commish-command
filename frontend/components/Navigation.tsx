@@ -12,6 +12,37 @@ const navItems = [
   { href: '/matchups', label: 'Matchups' },
 ];
 
+// Donut SVG component - Pink glazed chocolate donut
+function DonutLogo({ className = "w-10 h-10" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer donut - chocolate */}
+      <circle cx="50" cy="50" r="45" fill="#4A3728"/>
+      {/* Inner hole */}
+      <circle cx="50" cy="50" r="18" fill="#1F2937"/>
+      {/* Pink frosting */}
+      <path d="M50 8C25.7 8 6 26.3 6 48.5c0 3.5.5 6.9 1.3 10.1C12.5 35 29.2 18 50 18s37.5 17 42.7 40.6c.8-3.2 1.3-6.6 1.3-10.1C94 26.3 74.3 8 50 8z" fill="#F472B6"/>
+      {/* Frosting drips */}
+      <ellipse cx="25" cy="58" rx="4" ry="8" fill="#F472B6"/>
+      <ellipse cx="38" cy="62" rx="3" ry="6" fill="#F472B6"/>
+      <ellipse cx="75" cy="56" rx="4" ry="9" fill="#F472B6"/>
+      <ellipse cx="62" cy="60" rx="3" ry="7" fill="#F472B6"/>
+      <ellipse cx="50" cy="63" rx="3" ry="5" fill="#F472B6"/>
+      {/* Sprinkles */}
+      <rect x="30" y="25" width="6" height="2" rx="1" fill="#FBBF24" transform="rotate(-30 30 25)"/>
+      <rect x="45" y="18" width="6" height="2" rx="1" fill="#34D399" transform="rotate(15 45 18)"/>
+      <rect x="60" y="22" width="6" height="2" rx="1" fill="#F87171" transform="rotate(-45 60 22)"/>
+      <rect x="70" y="32" width="6" height="2" rx="1" fill="#60A5FA" transform="rotate(20 70 32)"/>
+      <rect x="22" y="38" width="6" height="2" rx="1" fill="#A78BFA" transform="rotate(-10 22 38)"/>
+      <rect x="55" y="30" width="6" height="2" rx="1" fill="#FBBF24" transform="rotate(40 55 30)"/>
+      <rect x="35" y="35" width="6" height="2" rx="1" fill="#F87171" transform="rotate(-25 35 35)"/>
+      <rect x="78" y="45" width="6" height="2" rx="1" fill="#34D399" transform="rotate(5 78 45)"/>
+      {/* Highlight */}
+      <ellipse cx="35" cy="30" rx="8" ry="4" fill="white" opacity="0.3" transform="rotate(-30 35 30)"/>
+    </svg>
+  );
+}
+
 export default function Navigation() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -23,12 +54,15 @@ export default function Navigation() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">⚔️</span>
+              <DonutLogo className="w-10 h-10" />
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="font-bold text-lg text-pink-600 dark:text-pink-400">
+                  Top Pot
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Commish Command
+                </span>
               </div>
-              <span className="font-bold text-xl text-gray-900 dark:text-white hidden sm:block">
-                Commish Command
-              </span>
             </Link>
           </div>
 

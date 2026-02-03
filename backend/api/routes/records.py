@@ -268,6 +268,7 @@ async def get_luck_analysis(db: Session = Depends(get_db)):
         
         luck_analysis.append({
             "member": member.name,
+            "member_id": member.id,
             "actual_wins": total_wins,
             "actual_losses": total_losses,
             "expected_wins": round(expected_wins, 1),
@@ -324,6 +325,7 @@ async def get_power_rankings(db: Session = Depends(get_db)):
         rankings.append({
             "rank": 0,
             "member": member.name,
+            "member_id": member.id,
             "power_score": round(power_score, 1),
             "seasons": member.total_seasons,
             "championships": member.total_championships,
@@ -340,4 +342,149 @@ async def get_power_rankings(db: Session = Depends(get_db)):
     return {
         "title": "All-Time Power Rankings",
         "rankings": rankings
+    }
+
+
+@router.get("/season/{year}")
+async def get_season_records(year: int, db: Session = Depends(get_db)):
+    """Get notable records/events for a specific season."""
+    season = db.query(Season).filter(Season.year == year).first()
+    
+    if not season:
+        raise HTTPException(status_code=404, detail=f"Season {year} not found")
+    
+    # Get all matchups for this season
+    matchups = db.query(Matchup).filter(
+        Matchup.season_id == season.id,
+        Matchup.team1_score > 0,
+        Matchup.team2_score > 0
+    ).all()
+    
+    if not matchups:
+        return {
+            "season": year,
+            "highest_score": None,
+            "lowest_score": None,
+            "biggest_blowout": None,
+            "closest_game": None,
+            "most_points_team": None,
+            "regular_season_leader": None,
+            "champion": None,
+        }
+    
+    # Track records
+    highest_score = None
+    lowest_score = None
+    biggest_blowout = None
+    closest_game = None
+    
+    for m in matchups:
+        # Track individual scores
+        for team, score in [(m.team1, m.team1_score), (m.team2, m.team2_score)]:
+            if team and score > 0:
+                manager_name = team.member.name if team.member else "Unknown"
+                member_id = team.member.id if team.member else None
+                
+                if highest_score is None or score > highest_score["score"]:
+                    highest_score = {
+                        "score": round(score, 2),
+                        "team": team.name,
+                        "manager": manager_name,
+                        "member_id": member_id,
+                        "week": m.week,
+                        "is_playoff": m.is_playoff,
+                    }
+                
+                if lowest_score is None or score < lowest_score["score"]:
+                    lowest_score = {
+                        "score": round(score, 2),
+                        "team": team.name,
+                        "manager": manager_name,
+                        "member_id": member_id,
+                        "week": m.week,
+                        "is_playoff": m.is_playoff,
+                    }
+        
+        # Track margins
+        margin = abs(m.team1_score - m.team2_score)
+        winner = m.team1 if m.team1_score > m.team2_score else m.team2
+        loser = m.team2 if m.team1_score > m.team2_score else m.team1
+        
+        if winner and loser:
+            winner_name = winner.member.name if winner.member else "Unknown"
+            winner_member_id = winner.member.id if winner.member else None
+            loser_name = loser.member.name if loser.member else "Unknown"
+            loser_member_id = loser.member.id if loser.member else None
+            
+            if biggest_blowout is None or margin > biggest_blowout["margin"]:
+                biggest_blowout = {
+                    "margin": round(margin, 2),
+                    "winner": winner_name,
+                    "winner_member_id": winner_member_id,
+                    "winner_score": round(max(m.team1_score, m.team2_score), 2),
+                    "loser": loser_name,
+                    "loser_member_id": loser_member_id,
+                    "loser_score": round(min(m.team1_score, m.team2_score), 2),
+                    "week": m.week,
+                    "is_playoff": m.is_playoff,
+                }
+            
+            if closest_game is None or margin < closest_game["margin"]:
+                closest_game = {
+                    "margin": round(margin, 2),
+                    "winner": winner_name,
+                    "winner_member_id": winner_member_id,
+                    "winner_score": round(max(m.team1_score, m.team2_score), 2),
+                    "loser": loser_name,
+                    "loser_member_id": loser_member_id,
+                    "loser_score": round(min(m.team1_score, m.team2_score), 2),
+                    "week": m.week,
+                    "is_playoff": m.is_playoff,
+                }
+    
+    # Get team with most total points
+    teams = db.query(Team).filter(Team.season_id == season.id).all()
+    most_points_team = None
+    regular_season_leader = None
+    champion = None
+    
+    for team in teams:
+        manager_name = team.member.name if team.member else "Unknown"
+        member_id = team.member.id if team.member else None
+        
+        if most_points_team is None or team.points_for > most_points_team["points"]:
+            most_points_team = {
+                "points": round(team.points_for, 2),
+                "team": team.name,
+                "manager": manager_name,
+                "member_id": member_id,
+                "record": f"{team.wins}-{team.losses}",
+            }
+        
+        if team.final_rank == 1:
+            regular_season_leader = {
+                "team": team.name,
+                "manager": manager_name,
+                "member_id": member_id,
+                "record": f"{team.wins}-{team.losses}",
+                "points": round(team.points_for, 2),
+            }
+        
+        if team.is_champion:
+            champion = {
+                "team": team.name,
+                "manager": manager_name,
+                "member_id": member_id,
+                "record": f"{team.wins}-{team.losses}",
+            }
+    
+    return {
+        "season": year,
+        "highest_score": highest_score,
+        "lowest_score": lowest_score,
+        "biggest_blowout": biggest_blowout,
+        "closest_game": closest_game,
+        "most_points_team": most_points_team,
+        "regular_season_leader": regular_season_leader,
+        "champion": champion,
     }

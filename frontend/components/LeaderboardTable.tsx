@@ -1,6 +1,9 @@
+import MemberLink from './MemberLink';
+
 interface LeaderboardEntry {
   rank?: number;
   name: string;
+  memberId?: number;
   value: string | number;
   subValue?: string;
   highlight?: boolean;
@@ -46,7 +49,11 @@ export default function LeaderboardTable({
                   </td>
                 )}
                 <td className="table-cell">
-                  <div className="font-medium">{entry.name}</div>
+                  <div className="font-medium">
+                    {entry.memberId ? (
+                      <MemberLink memberId={entry.memberId} name={entry.name} />
+                    ) : entry.name}
+                  </div>
                   {entry.subValue && (
                     <div className="text-xs text-gray-500 dark:text-gray-400">{entry.subValue}</div>
                   )}
