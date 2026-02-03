@@ -75,8 +75,11 @@ export default function HomePage() {
     <div className="space-y-8">
       {/* Hero Section */}
       <div className="text-center py-8">
+        <p className="text-sm font-medium text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-2">
+          Currently Viewing
+        </p>
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white">
-          ⚔️ Top Pot League
+          🏈 Top Pot League
         </h1>
         <p className="mt-3 text-xl text-gray-600 dark:text-gray-300">
           {totalSeasons} Years of Glory, Heartbreak, and Trash Talk
