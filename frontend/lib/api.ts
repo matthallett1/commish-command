@@ -2,7 +2,8 @@
  * API client for the Top Pot Dashboard backend
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://commish-command-production.up.railway.app';
+// Remove trailing slash from API URL if present
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://commish-command-production.up.railway.app').replace(/\/$/, '');
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, {
