@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from models.database import get_db
 from models.league import Member, Team, Season
 from models.matchup import Matchup
-from models.chat import ChatMessage, ChatStats
 
 router = APIRouter()
 

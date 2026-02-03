@@ -17,7 +17,6 @@ from models.database import SessionLocal, init_db
 from models.league import League, Season, Team, Member
 from models.matchup import Matchup, Standing
 from models.draft import DraftPick
-from models.chat import ChatMessage, ChatReaction
 from config import DATA_DIR
 
 
@@ -345,116 +344,6 @@ class DataLoader:
         print(f"Loaded Yahoo data: {counts}")
         return counts
     
-    def load_imessage_data(self, data_file: Path = None, member_mapping: Dict[str, str] = None) -> Dict[str, int]:
-        """
-        Load iMessage chat data from JSON export.
-        
-        Args:
-            data_file: Path to JSON file
-            member_mapping: Map of phone/email to member name
-            
-        Returns:
-            Dictionary of loaded counts
-        """
-        data_file = data_file or (DATA_DIR / "imessage_export.json")
-        
-        if not data_file.exists():
-            print(f"iMessage data file not found: {data_file}")
-            print("Run: python -m data_ingestion.imessage_parser --chat-id <id> --export")
-            return {}
-        
-        print(f"Loading iMessage data from: {data_file}")
-        
-        with open(data_file, "r") as f:
-            data = json.load(f)
-        
-        counts = {
-            "messages": 0,
-            "reactions": 0,
-        }
-        
-        member_mapping = member_mapping or {}
-        
-        # Load messages
-        for msg_data in data.get("messages", []):
-            sender_id = msg_data.get("sender_id", "")
-            
-            # Try to map to member
-            member = None
-            if sender_id in member_mapping:
-                member = self.get_or_create_member(member_mapping[sender_id], phone=sender_id)
-            elif msg_data.get("is_from_me"):
-                # This is from the user running the export
-                member = self.get_or_create_member("Me", phone="me")
-            
-            # Parse timestamp
-            timestamp_str = msg_data.get("timestamp")
-            if timestamp_str:
-                try:
-                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                except:
-                    timestamp = datetime.utcnow()
-            else:
-                timestamp = datetime.utcnow()
-            
-            # Create message
-            message = ChatMessage(
-                source="imessage",
-                external_id=str(msg_data.get("message_id")),
-                member_id=member.id if member else None,
-                sender_identifier=sender_id,
-                text=msg_data.get("text", ""),
-                timestamp=timestamp,
-                has_attachment=msg_data.get("has_attachment", False),
-                attachment_type=msg_data.get("attachment_type"),
-            )
-            message.calculate_word_count()
-            self.db.add(message)
-            counts["messages"] += 1
-        
-        # Load reactions
-        message_id_map = {}  # external_id -> ChatMessage.id
-        self.db.flush()
-        
-        for msg in self.db.query(ChatMessage).filter(ChatMessage.source == "imessage").all():
-            if msg.external_id:
-                message_id_map[msg.external_id] = msg.id
-        
-        for rxn_data in data.get("reactions", []):
-            target_id = str(rxn_data.get("target_message_id"))
-            message_id = message_id_map.get(target_id)
-            
-            if not message_id:
-                continue
-            
-            sender_id = rxn_data.get("sender_id", "")
-            member = None
-            if sender_id in member_mapping:
-                member = self.get_or_create_member(member_mapping[sender_id], phone=sender_id)
-            
-            timestamp_str = rxn_data.get("timestamp")
-            if timestamp_str:
-                try:
-                    timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
-                except:
-                    timestamp = datetime.utcnow()
-            else:
-                timestamp = datetime.utcnow()
-            
-            reaction = ChatReaction(
-                message_id=message_id,
-                member_id=member.id if member else None,
-                reaction_type=rxn_data.get("reaction_type", "like"),
-                timestamp=timestamp,
-            )
-            self.db.add(reaction)
-            counts["reactions"] += 1
-        
-        self.db.commit()
-        
-        print(f"Loaded iMessage data: {counts}")
-        return counts
-    
     def _update_member_stats(self):
         """Update aggregate stats for all members."""
         members = self.db.query(Member).all()
@@ -478,10 +367,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Data Loader")
     parser.add_argument("--init", action="store_true", help="Initialize database")
     parser.add_argument("--load-yahoo", action="store_true", help="Load Yahoo data")
-    parser.add_argument("--load-imessage", action="store_true", help="Load iMessage data")
-    parser.add_argument("--load-all", action="store_true", help="Load all data")
     parser.add_argument("--yahoo-file", type=str, help="Yahoo JSON file path")
-    parser.add_argument("--imessage-file", type=str, help="iMessage JSON file path")
     args = parser.parse_args()
     
     loader = DataLoader()
@@ -489,12 +375,8 @@ if __name__ == "__main__":
     if args.init:
         loader.initialize_database()
     
-    if args.load_yahoo or args.load_all:
+    if args.load_yahoo:
         yahoo_file = Path(args.yahoo_file) if args.yahoo_file else None
         loader.load_yahoo_data(yahoo_file)
-    
-    if args.load_imessage or args.load_all:
-        imessage_file = Path(args.imessage_file) if args.imessage_file else None
-        loader.load_imessage_data(imessage_file)
     
     loader.close()

@@ -23,7 +23,6 @@ class Member(Base):
     
     # Relationships
     teams = relationship("Team", back_populates="member")
-    chat_messages = relationship("ChatMessage", back_populates="member")
     
     # Computed stats (denormalized for performance)
     total_championships = Column(Integer, default=0)

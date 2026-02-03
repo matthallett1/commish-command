@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from models.league import Member, Team, Season
 from models.matchup import Matchup
-from models.chat import ChatMessage, ChatReaction, ChatStats, MemberPersona
 
 
 def calculate_power_rankings(db: Session) -> List[Dict[str, Any]]:
@@ -243,76 +242,6 @@ def calculate_h2h_matrix(db: Session) -> Dict[str, Any]:
         "members": [member_names[mid] for mid in member_ids],
         "matrix": result
     }
-
-
-def calculate_member_personas(db: Session) -> List[Dict[str, Any]]:
-    """
-    Calculate chat-based personas for members.
-    """
-    members = db.query(Member).all()
-    
-    # Get total counts for normalization
-    total_messages = db.query(func.count(ChatMessage.id)).scalar() or 1
-    total_reactions = db.query(func.count(ChatReaction.id)).scalar() or 1
-    
-    personas = []
-    
-    for member in members:
-        msg_count = db.query(func.count(ChatMessage.id)).filter(
-            ChatMessage.member_id == member.id
-        ).scalar() or 0
-        
-        if msg_count == 0:
-            continue
-        
-        word_count = db.query(func.sum(ChatMessage.word_count)).filter(
-            ChatMessage.member_id == member.id
-        ).scalar() or 0
-        
-        reactions_given = db.query(func.count(ChatReaction.id)).filter(
-            ChatReaction.member_id == member.id
-        ).scalar() or 0
-        
-        # Calculate traits
-        msg_share = msg_count / total_messages
-        reaction_share = reactions_given / total_reactions if total_reactions > 0 else 0
-        avg_words = word_count / msg_count if msg_count > 0 else 0
-        
-        social = min(100, (msg_share * 500) + (reaction_share * 300))
-        lurker = max(0, 100 - social)
-        analytical = min(100, avg_words * 5)
-        supportive = min(100, reaction_share * 500)
-        
-        # Determine primary persona
-        traits = {
-            "The Social Butterfly": social,
-            "The Analyst": analytical,
-            "The Lurker": lurker,
-            "The Hype Man": supportive,
-        }
-        
-        primary = max(traits.items(), key=lambda x: x[1])
-        
-        personas.append({
-            "member_id": member.id,
-            "member_name": member.name,
-            "primary_persona": primary[0],
-            "confidence": round(primary[1] / 100, 2),
-            "traits": {
-                "social": round(social, 1),
-                "analytical": round(analytical, 1),
-                "lurker": round(lurker, 1),
-                "supportive": round(supportive, 1),
-            },
-            "stats": {
-                "messages": msg_count,
-                "words": word_count,
-                "avg_words": round(avg_words, 1),
-                "reactions_given": reactions_given,
-            }
-        })
-    
-    return personas
 
 
 def calculate_all_time_records(db: Session) -> Dict[str, Any]:
