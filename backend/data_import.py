@@ -105,7 +105,7 @@ def import_from_json(db: Session, data: dict):
     db.flush()
     print(f"Imported {len(data.get('teams', []))} teams")
     
-    # 5. Matchups (depends on seasons, teams)
+    # 5. Matchups (depends on seasons, teams) - v2
     for item in data.get("matchups", []):
         matchup = Matchup(
             id=item["id"],
