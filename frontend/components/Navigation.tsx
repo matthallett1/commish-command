@@ -23,11 +23,11 @@ export default function Navigation() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">TP</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">⚔️</span>
               </div>
               <span className="font-bold text-xl text-gray-900 dark:text-white hidden sm:block">
-                Top Pot Fantasy
+                Commish Command
               </span>
             </Link>
           </div>

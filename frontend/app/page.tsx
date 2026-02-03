@@ -76,7 +76,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <div className="text-center py-8">
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white">
-          Top Pot Fantasy Football
+          ⚔️ Top Pot League
         </h1>
         <p className="mt-3 text-xl text-gray-600 dark:text-gray-300">
           {totalSeasons} Years of Glory, Heartbreak, and Trash Talk

@@ -1,6 +1,8 @@
-# Top Pot Fantasy Football Dashboard
+# ⚔️ Commish Command
 
-A beautiful dashboard for tracking historical fantasy football stats for the Top Pot Fantasy Football League.
+**Your League. Your Rules. Your Regime.**
+
+A fantasy football commissioner dashboard for tracking historical stats, power rankings, and league dominance.
 
 ## Features
 
@@ -73,7 +75,7 @@ source venv/bin/activate
 python ../scripts/setup_yahoo_auth.py
 
 # Sync data
-python ../scripts/sync_data.py yahoo --filter "top pot"
+python ../scripts/sync_data.py yahoo --filter "your league name"
 ```
 
 ---
@@ -95,11 +97,7 @@ This is the recommended deployment approach.
    - `YAHOO_CLIENT_SECRET`: Your Yahoo app client secret
 6. Deploy! Railway will give you a URL like `https://your-app.up.railway.app`
 
-**Important**: After deploying, you'll need to:
-- Upload your `oauth2.json` file (Yahoo auth tokens)
-- Upload your `data/top_pot.db` database file
-
-You can do this via Railway's shell or by including them in a Railway volume.
+**Important**: After deploying, you'll need to upload your database file with synced data.
 
 #### Frontend on Vercel
 
@@ -109,14 +107,6 @@ You can do this via Railway's shell or by including them in a Railway volume.
 4. Add environment variable:
    - `NEXT_PUBLIC_API_URL`: Your Railway backend URL (e.g., `https://your-app.up.railway.app`)
 5. Deploy!
-
-### Option 2: Simple Static Export
-
-If you want to avoid running a backend in production:
-
-1. Run the sync locally to populate the database
-2. Export the data to static JSON files
-3. Deploy the frontend as a static site
 
 ---
 
@@ -138,7 +128,7 @@ If you want to avoid running a backend in production:
 │   ├── setup_yahoo_auth.py
 │   └── sync_data.py
 └── data/
-    └── top_pot.db        # SQLite database
+    └── *.db              # SQLite database
 ```
 
 ---
@@ -155,4 +145,4 @@ If you want to avoid running a backend in production:
 
 ## License
 
-Private project for the Top Pot Fantasy Football League.
+MIT - Use this for your own league!

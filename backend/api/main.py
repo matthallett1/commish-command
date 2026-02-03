@@ -16,8 +16,8 @@ from models.database import init_db
 
 # Create FastAPI app
 app = FastAPI(
-    title="Top Pot Fantasy Football Dashboard",
-    description="API for the Top Pot Fantasy Football League dashboard featuring historical stats.",
+    title="Commish Command API",
+    description="Your league. Your rules. Your regime. API for fantasy football commissioner dashboards.",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -50,7 +50,8 @@ async def startup_event():
 async def root():
     """Root endpoint with API info."""
     return {
-        "name": "Top Pot Fantasy Football Dashboard API",
+        "name": "Commish Command API",
+        "tagline": "Your league. Your rules. Your regime.",
         "version": "1.0.0",
         "docs": "/api/docs",
         "endpoints": {

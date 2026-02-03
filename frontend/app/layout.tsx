@@ -3,8 +3,8 @@ import './globals.css';
 import Navigation from '@/components/Navigation';
 
 export const metadata: Metadata = {
-  title: 'Top Pot Fantasy Football Dashboard',
-  description: 'Historical stats and analytics for the Top Pot Fantasy Football League',
+  title: 'Commish Command - Fantasy Football Dashboard',
+  description: 'Your league. Your rules. Your regime. Historical stats and analytics for fantasy football commissioners.',
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
           <footer className="border-t border-gray-200 dark:border-slate-700 mt-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                Top Pot Fantasy Football League Dashboard
+                Commish Command — Your League. Your Rules. Your Regime.
               </p>
             </div>
           </footer>
