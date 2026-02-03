@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from api.routes import leagues, members, matchups, records
 from models.database import init_db
-from data_import import check_and_import
 
 # Create FastAPI app
 app = FastAPI(
@@ -43,10 +42,15 @@ app.include_router(records.router, prefix="/api/records", tags=["Records"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database and import data if needed."""
+    """Initialize database."""
     init_db()
-    # Check if we need to import data from JSON export
-    check_and_import()
+    # Import is now done manually or via a separate endpoint
+    # to avoid startup issues
+    try:
+        from data_import import check_and_import
+        check_and_import()
+    except Exception as e:
+        print(f"Import failed (non-fatal): {e}")
 
 
 @app.get("/", tags=["Root"])
