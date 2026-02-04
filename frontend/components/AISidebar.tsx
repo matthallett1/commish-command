@@ -145,7 +145,7 @@ export default function AISidebar({ pageType, context, title = 'Commish Insights
                 <div className="text-red-500 dark:text-red-400 text-sm">
                   <p>{error}</p>
                   <button
-                    onClick={fetchSummary}
+                    onClick={() => fetchSummary(true)}
                     className="mt-2 text-primary-600 dark:text-primary-400 hover:underline text-sm"
                   >
                     Try again
