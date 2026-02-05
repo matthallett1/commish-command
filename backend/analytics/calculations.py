@@ -2,7 +2,7 @@
 Analytics Calculations
 
 Core analytics functions for computing league statistics,
-power rankings, luck analysis, and member personas.
+power rankings, luck analysis, member personas, and draft analytics.
 """
 
 from typing import Dict, List, Any, Optional
@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from models.league import Member, Team, Season
 from models.matchup import Matchup
+from models.draft import DraftPick, Transaction
 
 
 def calculate_power_rankings(db: Session) -> List[Dict[str, Any]]:
@@ -349,3 +350,363 @@ def calculate_all_time_records(db: Session) -> Dict[str, Any]:
     records["lowest_combined"] = lowest_combined if lowest_combined["total"] < float("inf") else None
     
     return records
+
+
+# ─── Draft Analytics ────────────────────────────────────────────────────────
+
+GRADE_VALUES = {"A+": 4.3, "A": 4.0, "B": 3.0, "C": 2.0, "D": 1.0, "F": 0.0}
+GRADE_THRESHOLDS = [(4.3, "A+"), (3.5, "A"), (2.5, "B"), (1.5, "C"), (0.5, "D"), (0, "F")]
+
+
+def _numeric_grade(letter: Optional[str]) -> float:
+    """Convert a letter grade to a numeric value."""
+    return GRADE_VALUES.get(letter, 2.0) if letter else 2.0
+
+
+def _letter_grade(value: float) -> str:
+    """Convert a numeric grade value back to a letter grade."""
+    for threshold, letter in GRADE_THRESHOLDS:
+        if value >= threshold:
+            return letter
+    return "F"
+
+
+def calculate_draft_grades(db: Session, season_id: int) -> List[Dict[str, Any]]:
+    """
+    Calculate draft grades for all picks in a season.
+    
+    Grade is based on season points relative to draft position:
+    - Compare each player's season points against others drafted nearby.
+    - A player drafted late who scores a lot = high grade (steal).
+    - A player drafted early who scores little = low grade (bust).
+    
+    Returns updated pick data with grades assigned.
+    """
+    picks = (
+        db.query(DraftPick)
+        .filter(DraftPick.season_id == season_id)
+        .order_by(DraftPick.pick_number)
+        .all()
+    )
+    
+    if not picks:
+        return []
+    
+    # Only grade picks that have season points
+    scored = [p for p in picks if p.season_points is not None and p.season_points > 0]
+    if not scored:
+        return []
+    
+    # Calculate position-based rankings for grading
+    position_groups: Dict[str, List[DraftPick]] = defaultdict(list)
+    for p in scored:
+        pos = (p.player_position or "FLEX").upper()
+        # Normalize to broad position groups
+        if pos in ("QB",):
+            group = "QB"
+        elif pos in ("RB",):
+            group = "RB"
+        elif pos in ("WR",):
+            group = "WR"
+        elif pos in ("TE",):
+            group = "TE"
+        else:
+            group = "FLEX"
+        position_groups[group].append(p)
+    
+    # Rank within each position group by season points
+    for group, group_picks in position_groups.items():
+        group_picks.sort(key=lambda p: -(p.season_points or 0))
+        for rank, p in enumerate(group_picks, 1):
+            p.season_rank = rank
+    
+    # Calculate value & grade
+    for p in scored:
+        if p.adp and p.adp > 0:
+            p.value_over_adp = p.adp - p.pick_number  # Positive = picked later than ADP (value)
+        
+        # Grade based on season rank vs pick position
+        p.calculate_grade()
+    
+    db.commit()
+    
+    return [
+        {
+            "pick_number": p.pick_number,
+            "player_name": p.player_name,
+            "player_position": p.player_position,
+            "season_points": p.season_points,
+            "season_rank": p.season_rank,
+            "adp": p.adp,
+            "value_over_adp": p.value_over_adp,
+            "grade": p.grade,
+        }
+        for p in scored
+    ]
+
+
+def calculate_draft_report_cards(db: Session, season_id: int) -> List[Dict[str, Any]]:
+    """
+    Calculate overall draft report cards per team for a season.
+    Aggregates individual pick grades into team-level grades.
+    """
+    picks = (
+        db.query(DraftPick)
+        .filter(DraftPick.season_id == season_id)
+        .all()
+    )
+    
+    team_picks: Dict[int, List[DraftPick]] = defaultdict(list)
+    for p in picks:
+        if p.team_id:
+            team_picks[p.team_id].append(p)
+    
+    report_cards = []
+    for team_id, tpicks in team_picks.items():
+        team = db.query(Team).get(team_id)
+        if not team:
+            continue
+        member = team.member
+        
+        graded = [p for p in tpicks if p.grade]
+        if graded:
+            avg_val = sum(_numeric_grade(p.grade) for p in graded) / len(graded)
+            overall = _letter_grade(avg_val)
+        else:
+            avg_val = None
+            overall = None
+        
+        total_pts = sum(p.season_points or 0 for p in tpicks)
+        steals = [p for p in tpicks if p.grade in ("A+", "A")]
+        busts = [p for p in tpicks if p.grade in ("D", "F")]
+        
+        report_cards.append({
+            "team_id": team_id,
+            "team_name": team.name,
+            "manager": member.name if member else "Unknown",
+            "member_id": member.id if member else None,
+            "overall_grade": overall,
+            "avg_grade_value": round(avg_val, 2) if avg_val is not None else None,
+            "total_picks": len(tpicks),
+            "graded_picks": len(graded),
+            "total_season_points": round(total_pts, 1),
+            "steals": len(steals),
+            "busts": len(busts),
+        })
+    
+    report_cards.sort(key=lambda x: x.get("avg_grade_value") or 0, reverse=True)
+    return report_cards
+
+
+def calculate_member_draft_tendencies(db: Session, member_id: int) -> Dict[str, Any]:
+    """
+    Analyze a member's drafting tendencies across all seasons.
+    """
+    member = db.query(Member).get(member_id)
+    if not member:
+        return {}
+    
+    teams = db.query(Team).filter(Team.member_id == member_id).all()
+    team_ids = [t.id for t in teams]
+    
+    picks = (
+        db.query(DraftPick)
+        .filter(DraftPick.team_id.in_(team_ids))
+        .all()
+    )
+    
+    if not picks:
+        return {"member_id": member_id, "member_name": member.name, "total_picks": 0}
+    
+    # Position preferences
+    pos_counts: Dict[str, int] = defaultdict(int)
+    pos_points: Dict[str, float] = defaultdict(float)
+    for p in picks:
+        pos = p.player_position or "Unknown"
+        pos_counts[pos] += 1
+        pos_points[pos] += p.season_points or 0
+    
+    # Round 1 history
+    round_1 = [
+        {
+            "season": p.season.year if p.season else None,
+            "player_name": p.player_name,
+            "player_position": p.player_position,
+            "season_points": p.season_points,
+            "grade": p.grade,
+        }
+        for p in picks if p.round == 1
+    ]
+    
+    # Average grade
+    graded = [p for p in picks if p.grade]
+    avg_grade = _letter_grade(
+        sum(_numeric_grade(p.grade) for p in graded) / len(graded)
+    ) if graded else None
+    
+    favorite_pos = max(pos_counts, key=pos_counts.get) if pos_counts else None
+    
+    return {
+        "member_id": member_id,
+        "member_name": member.name,
+        "total_picks": len(picks),
+        "seasons_drafted": len(set(p.season.year for p in picks if p.season)),
+        "position_breakdown": {
+            pos: {
+                "count": count,
+                "percentage": round(count / len(picks) * 100, 1),
+                "avg_points": round(pos_points[pos] / count, 1) if count else 0,
+            }
+            for pos, count in sorted(pos_counts.items(), key=lambda x: -x[1])
+        },
+        "round_1_history": round_1,
+        "avg_grade": avg_grade,
+        "favorite_position": favorite_pos,
+    }
+
+
+def calculate_waiver_impact(db: Session, season_id: int) -> List[Dict[str, Any]]:
+    """
+    Calculate the impact of waiver wire / free agent pickups for a season.
+    
+    Shows which teams were most active and most successful on waivers.
+    """
+    transactions = (
+        db.query(Transaction)
+        .filter(
+            Transaction.season_id == season_id,
+            Transaction.type.in_(["add", "waiver"]),
+        )
+        .all()
+    )
+    
+    team_stats: Dict[int, Dict[str, Any]] = defaultdict(
+        lambda: {"adds": 0, "total_points": 0.0, "best_pickup": None, "best_points": 0}
+    )
+    
+    for tx in transactions:
+        tid = tx.team_id
+        team_stats[tid]["adds"] += 1
+        team_stats[tid]["total_points"] += tx.points_scored or 0
+        
+        if (tx.points_scored or 0) > team_stats[tid]["best_points"]:
+            team_stats[tid]["best_points"] = tx.points_scored or 0
+            team_stats[tid]["best_pickup"] = tx.player_name
+    
+    results = []
+    for tid, stats in team_stats.items():
+        team = db.query(Team).get(tid)
+        if not team:
+            continue
+        member = team.member
+        
+        results.append({
+            "team_id": tid,
+            "team_name": team.name,
+            "manager": member.name if member else "Unknown",
+            "member_id": member.id if member else None,
+            "total_adds": stats["adds"],
+            "total_waiver_points": round(stats["total_points"], 1),
+            "avg_points_per_add": round(stats["total_points"] / stats["adds"], 1) if stats["adds"] else 0,
+            "best_pickup": stats["best_pickup"],
+            "best_pickup_points": round(stats["best_points"], 1),
+        })
+    
+    results.sort(key=lambda x: -x["total_waiver_points"])
+    return results
+
+
+def calculate_league_draft_overview(db: Session) -> Dict[str, Any]:
+    """
+    High-level overview of drafting across all seasons.
+    Used for the drafts landing page.
+    """
+    seasons = db.query(Season).order_by(Season.year.desc()).all()
+    
+    overview = {
+        "seasons": [],
+        "all_time_best_drafter": None,
+        "all_time_worst_drafter": None,
+        "most_active_trader": None,
+    }
+    
+    member_grades: Dict[int, List[float]] = defaultdict(list)
+    member_tx_counts: Dict[int, int] = defaultdict(int)
+    
+    for season in seasons:
+        picks = db.query(DraftPick).filter(DraftPick.season_id == season.id).all()
+        txns = db.query(Transaction).filter(Transaction.season_id == season.id).count()
+        
+        graded = [p for p in picks if p.grade]
+        avg_grade = None
+        if graded:
+            avg_val = sum(_numeric_grade(p.grade) for p in graded) / len(graded)
+            avg_grade = _letter_grade(avg_val)
+            
+            # Track per-member grades
+            team_grades: Dict[int, List[float]] = defaultdict(list)
+            for p in graded:
+                if p.team and p.team.member:
+                    team_grades[p.team.member_id].append(_numeric_grade(p.grade))
+            
+            for mid, grades in team_grades.items():
+                member_grades[mid].extend(grades)
+        
+        # Track transactions per member
+        member_txns = (
+            db.query(Transaction.team_id, func.count(Transaction.id))
+            .filter(Transaction.season_id == season.id)
+            .group_by(Transaction.team_id)
+            .all()
+        )
+        for tid, count in member_txns:
+            team = db.query(Team).get(tid)
+            if team and team.member:
+                member_tx_counts[team.member_id] += count
+        
+        overview["seasons"].append({
+            "year": season.year,
+            "total_picks": len(picks),
+            "graded_picks": len(graded),
+            "avg_grade": avg_grade,
+            "total_transactions": txns,
+        })
+    
+    # All-time best/worst drafter
+    if member_grades:
+        best_mid = max(member_grades, key=lambda mid: sum(member_grades[mid]) / len(member_grades[mid]))
+        worst_mid = min(member_grades, key=lambda mid: sum(member_grades[mid]) / len(member_grades[mid]))
+        
+        best_member = db.query(Member).get(best_mid)
+        worst_member = db.query(Member).get(worst_mid)
+        
+        if best_member:
+            avg = sum(member_grades[best_mid]) / len(member_grades[best_mid])
+            overview["all_time_best_drafter"] = {
+                "member_id": best_mid,
+                "member_name": best_member.name,
+                "avg_grade": _letter_grade(avg),
+                "total_graded_picks": len(member_grades[best_mid]),
+            }
+        
+        if worst_member:
+            avg = sum(member_grades[worst_mid]) / len(member_grades[worst_mid])
+            overview["all_time_worst_drafter"] = {
+                "member_id": worst_mid,
+                "member_name": worst_member.name,
+                "avg_grade": _letter_grade(avg),
+                "total_graded_picks": len(member_grades[worst_mid]),
+            }
+    
+    # Most active trader
+    if member_tx_counts:
+        most_active_mid = max(member_tx_counts, key=member_tx_counts.get)
+        most_active_member = db.query(Member).get(most_active_mid)
+        if most_active_member:
+            overview["most_active_trader"] = {
+                "member_id": most_active_mid,
+                "member_name": most_active_member.name,
+                "total_transactions": member_tx_counts[most_active_mid],
+            }
+    
+    return overview

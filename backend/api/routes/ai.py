@@ -1,10 +1,11 @@
-"""AI Summary API routes."""
+"""AI Summary API routes with caching and tone support."""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import anthropic
-import asyncio
+import hashlib
+import json
 import re
 
 import sys
@@ -16,27 +17,47 @@ from config import settings
 router = APIRouter()
 
 
+# ---------------------------------------------------------------------------
+# Request / Response models
+# ---------------------------------------------------------------------------
+
+VALID_TONES = [
+    "commissioner",   # default — balanced, witty, emoji-sprinkled
+    "trash_talk",      # roasts, burns, no mercy
+    "hype_man",        # supportive, motivational, glass-half-full
+    "analyst",         # ESPN-style serious breakdown, stats-heavy
+    "poet",            # dramatic, literary, metaphor-heavy
+    "movie_trailer",   # cinematic voice-over
+]
+
+
 class SummaryRequest(BaseModel):
     page_type: str  # "member_profile" | "standings" | "records" | "matchups"
     context: Dict[str, Any]
+    tone: str = "commissioner"
 
 
 class SummaryResponse(BaseModel):
     narrative: str
     page_type: str
     model: str
+    tone: str
+    cached: bool = False
 
 
 class BlockInsightRequest(BaseModel):
-    block_type: str  # "season_history" | "rivalries" | "h2h_records" | "notable_moments" | etc.
+    block_type: str
     context: Dict[str, Any]
-    member_context: Optional[Dict[str, Any]] = None  # Additional context about the member
+    member_context: Optional[Dict[str, Any]] = None
+    tone: str = "commissioner"
 
 
 class BlockInsightResponse(BaseModel):
     narrative: str
     block_type: str
     model: str
+    tone: str
+    cached: bool = False
 
 
 class BatchInsightsRequest(BaseModel):
@@ -44,16 +65,91 @@ class BatchInsightsRequest(BaseModel):
 
 
 class BatchInsightsResponse(BaseModel):
-    insights: Dict[str, str]  # block_type -> narrative
+    insights: Dict[str, str]
     model: str
+    tone: str
+    cached: bool = False
 
 
-# Model configuration - using the best model for rich narratives
+# ---------------------------------------------------------------------------
+# Model configuration
+# ---------------------------------------------------------------------------
+
 AI_MODEL = "claude-sonnet-4-20250514"
 AI_MODEL_DISPLAY = "Claude Sonnet 4"
 
 
-# System prompts for different page types
+# ---------------------------------------------------------------------------
+# Tone modifiers — appended to the system prompt to shift voice
+# ---------------------------------------------------------------------------
+
+TONE_MODIFIERS = {
+    "commissioner": "",  # default voice, no modifier needed
+    "trash_talk": """
+
+TONE OVERRIDE — TRASH TALK MODE:
+You are now in ROAST MODE. Be savage, merciless, and hilarious. Every stat is ammunition.
+- Mock bad records, low scores, and playoff misses HARD
+- Use phrases like "absolutely embarrassing", "league laughingstock", "poverty franchise"
+- Even good players get backhanded compliments: "congrats on being the tallest dwarf"
+- Use fire emojis for burns 🔥💀☠️😂
+- Keep it fun — this is friendly league trash talk, not actual cruelty
+- Still reference real stats and names""",
+
+    "hype_man": """
+
+TONE OVERRIDE — HYPE MAN MODE:
+You are now the ultimate cheerleader and motivational speaker. EVERYTHING is amazing.
+- Find the silver lining in even the worst records
+- Celebrate small victories like they're championships
+- Use phrases like "on the rise!", "sleeping giant", "next year is THE year"
+- Lots of 💪🔥⭐✨🚀 energy
+- Even bad seasons are "character-building" and "setting up the redemption arc"
+- Be genuinely supportive and uplifting while still referencing real stats""",
+
+    "analyst": """
+
+TONE OVERRIDE — ANALYST MODE:
+You are a dead-serious ESPN analyst. No jokes, no emojis, just cold hard analysis.
+- Use precise stats, percentages, and comparisons
+- Structure your analysis logically
+- Use phrases like "regression to the mean", "sustainable rate", "sample size"
+- Compare to league averages
+- Give an honest, data-driven assessment
+- NO emojis at all — this is serious business
+- Think: Bill Barnwell writing for ESPN""",
+
+    "poet": """
+
+TONE OVERRIDE — POET LAUREATE MODE:
+You are a dramatic poet narrating an epic tale. Think Shakespeare meets fantasy football.
+- Use metaphors, similes, and vivid imagery
+- Reference seasons as "chapters" and careers as "sagas"
+- Losses are "tragedies", wins are "triumphs", championships are "coronations"
+- Use literary language: "alas", "behold", "thus", "lo"
+- Include occasional dramatic line breaks for effect
+- Sprinkle in 📜⚔️👑🌟 emojis sparingly
+- Make even mediocre records sound like Greek mythology""",
+
+    "movie_trailer": """
+
+TONE OVERRIDE — MOVIE TRAILER MODE:
+You are the voice-over guy for an action movie trailer. MAXIMUM DRAMA.
+- Short, punchy sentences. Dramatic pauses (use "..." liberally)
+- "In a league of twelve... one manager dared to start three Jets receivers."
+- "They said it couldn't be done. He said... hold my beer."
+- Build tension, then deliver a punchline
+- Reference specific stats like they're plot twists
+- Use 🎬🎬🎬 energy
+- Every season is a blockbuster, every matchup is a showdown
+- End with a dramatic one-liner""",
+}
+
+
+# ---------------------------------------------------------------------------
+# System prompts for page-level summaries
+# ---------------------------------------------------------------------------
+
 SYSTEM_PROMPTS = {
     "member_profile": """You are an entertaining, charismatic fantasy football analyst with the energy of a sports talk show host. You're providing color commentary for a league member's profile page.
 
@@ -112,7 +208,10 @@ Keep it around 150-200 words. Make every matchup feel like it mattered!""",
 }
 
 
-# Block-specific prompts for embedded insights within widgets
+# ---------------------------------------------------------------------------
+# Block-specific prompts for embedded insights
+# ---------------------------------------------------------------------------
+
 BLOCK_PROMPTS = {
     "season_history": """You are a sharp fantasy football analyst commenting on a manager's season-by-season journey.
 
@@ -193,8 +292,89 @@ STYLE:
 - End with a verdict or label
 
 Keep it to 40-60 words - quick and definitive.""",
+
+    "league_history": """You are a nostalgic fantasy football commentator narrating a league history moment.
+
+This is a "This Day in League History" segment. Make the moment feel EPIC and memorable.
+
+STYLE:
+- Use emojis (📅 🔥 🏆 💀 ⚡ etc.)
+- Be dramatic — this is broadcast-quality nostalgia
+- 2-3 short sentences max
+- Reference names, scores, and the specific year/week
+- Build to a punchline or dramatic statement
+
+Keep it to 40-60 words - quick and cinematic.""",
 }
 
+
+# ---------------------------------------------------------------------------
+# Cache helpers
+# ---------------------------------------------------------------------------
+
+def _make_context_hash(context: Any) -> str:
+    """Create a deterministic hash of the context dict for cache lookup."""
+    raw = json.dumps(context, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _make_cache_key(block_type: str, context_hash: str, tone: str) -> str:
+    """Create a unique cache key for a specific block + context + tone."""
+    return f"{block_type}:{tone}:{context_hash}"
+
+
+def _get_cached(cache_key: str):
+    """Look up a cached narrative. Returns the AICache row or None."""
+    from models.database import SessionLocal
+    from models.ai_cache import AICache
+    db = SessionLocal()
+    try:
+        return db.query(AICache).filter(AICache.cache_key == cache_key).first()
+    finally:
+        db.close()
+
+
+def _store_cache(cache_key: str, block_type: str, tone: str, narrative: str, model: str, context_hash: str):
+    """Write a narrative to the cache."""
+    from models.database import SessionLocal
+    from models.ai_cache import AICache
+    db = SessionLocal()
+    try:
+        existing = db.query(AICache).filter(AICache.cache_key == cache_key).first()
+        if existing:
+            existing.narrative = narrative
+            existing.model = model
+        else:
+            row = AICache(
+                cache_key=cache_key,
+                block_type=block_type,
+                tone=tone,
+                narrative=narrative,
+                model=model,
+                context_hash=context_hash,
+            )
+            db.add(row)
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _validate_tone(tone: str) -> str:
+    """Return the tone if valid, else default."""
+    return tone if tone in VALID_TONES else "commissioner"
+
+
+def _apply_tone(system_prompt: str, tone: str) -> str:
+    """Append the tone modifier to the base system prompt."""
+    modifier = TONE_MODIFIERS.get(tone, "")
+    return system_prompt + modifier
+
+
+# ---------------------------------------------------------------------------
+# Prompt builders (unchanged logic, extracted for clarity)
+# ---------------------------------------------------------------------------
 
 def build_block_prompt(block_type: str, context: Dict[str, Any], member_context: Optional[Dict[str, Any]] = None) -> str:
     """Build a prompt for a specific block/widget."""
@@ -205,7 +385,7 @@ def build_block_prompt(block_type: str, context: Dict[str, Any], member_context:
         seasons = context.get("seasons", [])
         seasons_text = "\n".join([
             f"- {s.get('year')}: {s.get('record')} (#{s.get('final_rank')}) - {s.get('points_for'):,.0f} pts {'🏆 CHAMPION' if s.get('is_champion') else ''}"
-            for s in seasons[:10]  # Last 10 seasons
+            for s in seasons[:10]
         ])
         return f"""Analyze {member_name}'s season history and identify the storyline:
 
@@ -227,15 +407,12 @@ What's the story here? Who's the nemesis? Who do they dominate?"""
 
     elif block_type == "h2h_records":
         h2h = context.get("head_to_head", [])
-        # Find best and worst matchups
         if h2h:
             sorted_h2h = sorted(h2h, key=lambda x: x.get('win_percentage', 0), reverse=True)
             best = sorted_h2h[:3]
             worst = sorted_h2h[-3:]
-            
             best_text = "\n".join([f"- vs {r.get('member_name')}: {r.get('wins')}-{r.get('losses')} ({r.get('win_percentage', 0):.0f}%)" for r in best])
             worst_text = "\n".join([f"- vs {r.get('member_name')}: {r.get('wins')}-{r.get('losses')} ({r.get('win_percentage', 0):.0f}%)" for r in worst])
-            
             return f"""Analyze {member_name}'s head-to-head performance:
 
 DOMINATES (Best Records):
@@ -289,6 +466,9 @@ Worst Finish: #{member.get('worst_finish', 'N/A')}
 
 What's the verdict? Elite? Solid? Work in progress?"""
 
+    elif block_type == "league_history":
+        return f"Narrate this moment from league history in an exciting way: {json.dumps(context, default=str)}"
+
     else:
         return f"Analyze this data and provide a brief, entertaining insight: {context}"
 
@@ -303,14 +483,12 @@ def build_user_prompt(page_type: str, context: Dict[str, Any]) -> str:
         h2h = context.get("head_to_head", [])
         seasons = context.get("seasons", [])
         
-        # Build rivalry details with records
         rivalry_details = []
         for r in rivalries[:3]:
             rivalry_details.append(
                 f"{r.get('member_name', 'Unknown')} ({r.get('wins', 0)}-{r.get('losses', 0)}, {r.get('classification', '')})"
             )
         
-        # Build H2H summary - best and worst matchups
         h2h_summary = ""
         if h2h:
             best_matchup = max(h2h, key=lambda x: x.get('win_percentage', 0)) if h2h else None
@@ -321,11 +499,10 @@ Head-to-Head Highlights:
 - Dominates: {best_matchup.get('member_name', 'Unknown')} ({best_matchup.get('wins', 0)}-{best_matchup.get('losses', 0)}, {best_matchup.get('win_percentage', 0)}% win rate)
 - Struggles against: {worst_matchup.get('member_name', 'Unknown')} ({worst_matchup.get('wins', 0)}-{worst_matchup.get('losses', 0)}, {worst_matchup.get('win_percentage', 0)}% win rate)"""
         
-        # Career trajectory
         trajectory = ""
         if seasons and len(seasons) >= 2:
-            recent = seasons[:3]  # Most recent seasons
-            early = seasons[-3:] if len(seasons) > 3 else []  # Earliest seasons
+            recent = seasons[:3]
+            early = seasons[-3:] if len(seasons) > 3 else []
             recent_avg_rank = sum(s.get('final_rank', 6) for s in recent) / len(recent) if recent else 0
             early_avg_rank = sum(s.get('final_rank', 6) for s in early) / len(early) if early else 0
             if recent_avg_rank < early_avg_rank - 1:
@@ -436,142 +613,142 @@ Write colorful commentary about these memorable matchups."""
     return prompt
 
 
+# ---------------------------------------------------------------------------
+# Route: /summary
+# ---------------------------------------------------------------------------
+
 @router.post("/summary", response_model=SummaryResponse)
 async def generate_summary(request: SummaryRequest):
-    """Generate an AI narrative summary for a page."""
+    """Generate an AI narrative summary for a page (with caching + tone)."""
     
     if not settings.anthropic_configured:
-        raise HTTPException(
-            status_code=503,
-            detail="AI summaries are not available. ANTHROPIC_API_KEY not configured."
-        )
+        raise HTTPException(status_code=503, detail="AI summaries are not available. ANTHROPIC_API_KEY not configured.")
     
     if request.page_type not in SYSTEM_PROMPTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid page_type. Must be one of: {', '.join(SYSTEM_PROMPTS.keys())}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid page_type. Must be one of: {', '.join(SYSTEM_PROMPTS.keys())}")
+    
+    tone = _validate_tone(request.tone)
+    context_hash = _make_context_hash(request.context)
+    cache_key = _make_cache_key(f"summary_{request.page_type}", context_hash, tone)
+    
+    # Check cache first
+    cached = _get_cached(cache_key)
+    if cached:
+        return SummaryResponse(narrative=cached.narrative, page_type=request.page_type, model=AI_MODEL_DISPLAY, tone=tone, cached=True)
     
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        
-        system_prompt = SYSTEM_PROMPTS[request.page_type]
+        system_prompt = _apply_tone(SYSTEM_PROMPTS[request.page_type], tone)
         user_prompt = build_user_prompt(request.page_type, request.context)
         
         message = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=500,
-            temperature=0.8,  # Slightly higher for more creative/varied output
+            model=AI_MODEL, max_tokens=500, temperature=0.8,
             system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ]
+            messages=[{"role": "user", "content": user_prompt}]
         )
-        
         narrative = message.content[0].text
         
-        return SummaryResponse(
-            narrative=narrative,
-            page_type=request.page_type,
-            model=AI_MODEL_DISPLAY
-        )
+        _store_cache(cache_key, f"summary_{request.page_type}", tone, narrative, AI_MODEL_DISPLAY, context_hash)
+        
+        return SummaryResponse(narrative=narrative, page_type=request.page_type, model=AI_MODEL_DISPLAY, tone=tone, cached=False)
         
     except anthropic.APIError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"AI service error: {str(e)}"
-        )
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate summary: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
+
+# ---------------------------------------------------------------------------
+# Route: /block-insight
+# ---------------------------------------------------------------------------
 
 @router.post("/block-insight", response_model=BlockInsightResponse)
 async def generate_block_insight(request: BlockInsightRequest):
-    """Generate an AI insight for a specific content block/widget."""
+    """Generate an AI insight for a specific content block (with caching + tone)."""
     
     if not settings.anthropic_configured:
-        raise HTTPException(
-            status_code=503,
-            detail="AI insights are not available. ANTHROPIC_API_KEY not configured."
-        )
+        raise HTTPException(status_code=503, detail="AI insights are not available. ANTHROPIC_API_KEY not configured.")
     
     if request.block_type not in BLOCK_PROMPTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid block_type. Must be one of: {', '.join(BLOCK_PROMPTS.keys())}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid block_type. Must be one of: {', '.join(BLOCK_PROMPTS.keys())}")
+    
+    tone = _validate_tone(request.tone)
+    context_hash = _make_context_hash({"context": request.context, "member": request.member_context})
+    cache_key = _make_cache_key(request.block_type, context_hash, tone)
+    
+    cached = _get_cached(cache_key)
+    if cached:
+        return BlockInsightResponse(narrative=cached.narrative, block_type=request.block_type, model=AI_MODEL_DISPLAY, tone=tone, cached=True)
     
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        
-        system_prompt = BLOCK_PROMPTS[request.block_type]
+        system_prompt = _apply_tone(BLOCK_PROMPTS[request.block_type], tone)
         user_prompt = build_block_prompt(request.block_type, request.context, request.member_context)
         
         message = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=150,  # Shorter for block insights
-            temperature=0.8,
+            model=AI_MODEL, max_tokens=150, temperature=0.8,
             system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ]
+            messages=[{"role": "user", "content": user_prompt}]
         )
-        
         narrative = message.content[0].text
         
-        return BlockInsightResponse(
-            narrative=narrative,
-            block_type=request.block_type,
-            model=AI_MODEL_DISPLAY
-        )
+        _store_cache(cache_key, request.block_type, tone, narrative, AI_MODEL_DISPLAY, context_hash)
+        
+        return BlockInsightResponse(narrative=narrative, block_type=request.block_type, model=AI_MODEL_DISPLAY, tone=tone, cached=False)
         
     except anthropic.APIError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"AI service error: {str(e)}"
-        )
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate insight: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to generate insight: {str(e)}")
 
+
+# ---------------------------------------------------------------------------
+# Route: /batch-insights
+# ---------------------------------------------------------------------------
 
 @router.post("/batch-insights", response_model=BatchInsightsResponse)
 async def generate_batch_insights(request: BatchInsightsRequest):
-    """Generate multiple AI insights in a single request for efficiency."""
+    """Generate multiple AI insights in one request (with caching + tone)."""
     
     if not settings.anthropic_configured:
-        raise HTTPException(
-            status_code=503,
-            detail="AI insights are not available. ANTHROPIC_API_KEY not configured."
-        )
+        raise HTTPException(status_code=503, detail="AI insights are not available. ANTHROPIC_API_KEY not configured.")
     
-    # Validate all block types
     for block in request.blocks:
         if block.block_type not in BLOCK_PROMPTS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid block_type '{block.block_type}'. Must be one of: {', '.join(BLOCK_PROMPTS.keys())}"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid block_type '{block.block_type}'. Must be one of: {', '.join(BLOCK_PROMPTS.keys())}")
+    
+    # Use the tone from the first block (they should all match in a batch call)
+    tone = _validate_tone(request.blocks[0].tone if request.blocks else "commissioner")
+    
+    # Check cache for each block
+    insights: Dict[str, str] = {}
+    uncached_blocks: list = []
+    
+    for block in request.blocks:
+        ctx_hash = _make_context_hash({"context": block.context, "member": block.member_context})
+        ck = _make_cache_key(block.block_type, ctx_hash, tone)
+        cached = _get_cached(ck)
+        if cached:
+            insights[block.block_type] = cached.narrative
+        else:
+            uncached_blocks.append(block)
+    
+    # If everything was cached, return immediately
+    if not uncached_blocks:
+        return BatchInsightsResponse(insights=insights, model=AI_MODEL_DISPLAY, tone=tone, cached=True)
     
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         
-        # Build a single combined prompt for all blocks
         combined_sections = []
-        for i, block in enumerate(request.blocks):
-            system_prompt = BLOCK_PROMPTS[block.block_type]
+        for i, block in enumerate(uncached_blocks):
             user_prompt = build_block_prompt(block.block_type, block.context, block.member_context)
             combined_sections.append(f"""
 === SECTION {i+1}: {block.block_type.upper().replace('_', ' ')} ===
 {user_prompt}
 """)
         
-        combined_prompt = f"""You need to provide {len(request.blocks)} separate insights for different sections of a fantasy football manager's profile page.
+        combined_prompt = f"""You need to provide {len(uncached_blocks)} separate insights for different sections of a fantasy football manager's profile page.
 
 For EACH section, write a brief, punchy insight (40-60 words) with emojis and personality.
 
@@ -590,7 +767,7 @@ Here are the sections to analyze:
 
 Remember: Each insight should be 40-60 words, use emojis, and be entertaining!"""
 
-        system_prompt = """You are an entertaining fantasy football analyst providing quick, punchy insights for different sections of a manager's profile page.
+        base_system = """You are an entertaining fantasy football analyst providing quick, punchy insights for different sections of a manager's profile page.
 
 STYLE FOR ALL INSIGHTS:
 - Use emojis liberally (🏆 🔥 💀 😤 📈 📉 💪 😰 🎯 ⚡ 👑 etc.)
@@ -599,21 +776,17 @@ STYLE FOR ALL INSIGHTS:
 - Be entertaining, dramatic, and fun
 - Each section gets its own distinct insight"""
 
+        system_prompt = _apply_tone(base_system, tone)
+        
         message = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=1000,  # More tokens for batch
-            temperature=0.8,
+            model=AI_MODEL, max_tokens=1000, temperature=0.8,
             system=system_prompt,
-            messages=[
-                {"role": "user", "content": combined_prompt}
-            ]
+            messages=[{"role": "user", "content": combined_prompt}]
         )
         
         response_text = message.content[0].text
         
-        # Parse the response into individual insights
-        insights = {}
-        for i, block in enumerate(request.blocks):
+        for i, block in enumerate(uncached_blocks):
             section_marker = f"[SECTION_{i+1}]"
             next_marker = f"[SECTION_{i+2}]"
             
@@ -622,27 +795,28 @@ STYLE FOR ALL INSIGHTS:
                 start_idx += len(section_marker)
                 end_idx = response_text.find(next_marker) if next_marker in response_text else len(response_text)
                 insight_text = response_text[start_idx:end_idx].strip()
-                insights[block.block_type] = insight_text
             else:
-                # Fallback: try to extract by position
-                insights[block.block_type] = "✨ Check out these stats!"
+                insight_text = "✨ Check out these stats!"
+            
+            insights[block.block_type] = insight_text
+            
+            # Store each individually in cache
+            ctx_hash = _make_context_hash({"context": block.context, "member": block.member_context})
+            ck = _make_cache_key(block.block_type, ctx_hash, tone)
+            _store_cache(ck, block.block_type, tone, insight_text, AI_MODEL_DISPLAY, ctx_hash)
         
-        return BatchInsightsResponse(
-            insights=insights,
-            model=AI_MODEL_DISPLAY
-        )
+        all_cached = len(uncached_blocks) == 0
+        return BatchInsightsResponse(insights=insights, model=AI_MODEL_DISPLAY, tone=tone, cached=all_cached)
         
     except anthropic.APIError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"AI service error: {str(e)}"
-        )
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate insights: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
 
+
+# ---------------------------------------------------------------------------
+# Route: /status  &  /tones
+# ---------------------------------------------------------------------------
 
 @router.get("/status")
 async def ai_status():
@@ -653,6 +827,42 @@ async def ai_status():
         "model": AI_MODEL if settings.anthropic_configured else None,
         "model_display": AI_MODEL_DISPLAY if settings.anthropic_configured else None,
     }
+
+
+@router.get("/tones")
+async def get_tones():
+    """Return available AI tones."""
+    tone_labels = {
+        "commissioner": "The Commissioner",
+        "trash_talk": "Trash Talk",
+        "hype_man": "Hype Man",
+        "analyst": "Analyst",
+        "poet": "Poet Laureate",
+        "movie_trailer": "Movie Trailer",
+    }
+    return {
+        "tones": [{"id": t, "label": tone_labels.get(t, t)} for t in VALID_TONES],
+        "default": "commissioner",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Route: /cache/clear
+# ---------------------------------------------------------------------------
+
+@router.delete("/cache/clear")
+async def clear_cache():
+    """Clear all AI cache entries."""
+    from models.database import SessionLocal
+    from models.ai_cache import AICache
+    db = SessionLocal()
+    try:
+        count = db.query(AICache).count()
+        db.query(AICache).delete()
+        db.commit()
+        return {"cleared": count}
+    finally:
+        db.close()
 
 
 # ============================================================================
@@ -671,13 +881,9 @@ class AskCommishResponse(BaseModel):
 # Input sanitization to prevent prompt injection
 def sanitize_question(question: str) -> str:
     """Sanitize user input to prevent prompt injection attacks."""
-    # Limit length
     question = question[:500]
-    
-    # Remove HTML tags
     question = re.sub(r'<[^>]+>', '', question)
     
-    # Remove potential prompt injection patterns
     suspicious_patterns = [
         r'ignore\s+(previous|above|all)\s+instructions?',
         r'disregard\s+(previous|above|all)',
@@ -717,22 +923,14 @@ You have access to the following league data:
 
 @router.post("/ask", response_model=AskCommishResponse)
 async def ask_commish(request: AskCommishRequest):
-    """
-    Safe Q&A endpoint - AI answers questions about pre-fetched league data.
-    The AI never has direct database access - we fetch all data first.
-    """
+    """Safe Q&A endpoint - AI answers questions about pre-fetched league data."""
     from models.database import SessionLocal
-    from models.league import Member, Season
+    from models.league import Member, Season, Team
     from models.matchup import Matchup
-    from sqlalchemy import func
     
     if not settings.anthropic_configured:
-        raise HTTPException(
-            status_code=503,
-            detail="AI features are not available. ANTHROPIC_API_KEY not configured."
-        )
+        raise HTTPException(status_code=503, detail="AI features are not available. ANTHROPIC_API_KEY not configured.")
     
-    # Sanitize user input
     safe_question = sanitize_question(request.question)
     if safe_question == "[Question filtered for safety]":
         return AskCommishResponse(
@@ -741,72 +939,47 @@ async def ask_commish(request: AskCommishRequest):
             model=AI_MODEL_DISPLAY
         )
     
-    # Pre-fetch all relevant data (the AI only sees what we give it)
     sources_used = []
     db = SessionLocal()
     
     try:
-        # Import Team for computing best/worst finish
-        from models.league import Team
-        
-        # Fetch members summary
         members = db.query(Member).all()
         members_data = []
         for m in members:
-            # Compute best/worst finish from teams
             teams = db.query(Team).filter(Team.member_id == m.id).all()
             finishes = [t.final_rank for t in teams if t.final_rank]
             best_finish = min(finishes) if finishes else None
             worst_finish = max(finishes) if finishes else None
-            
             members_data.append({
-                "name": m.name,
-                "seasons": m.total_seasons,
-                "championships": m.total_championships,
-                "wins": m.total_wins,
-                "losses": m.total_losses,
+                "name": m.name, "seasons": m.total_seasons, "championships": m.total_championships,
+                "wins": m.total_wins, "losses": m.total_losses,
                 "win_pct": round(m.total_wins / (m.total_wins + m.total_losses) * 100, 1) if (m.total_wins + m.total_losses) > 0 else 0,
-                "best_finish": best_finish,
-                "worst_finish": worst_finish,
+                "best_finish": best_finish, "worst_finish": worst_finish,
             })
         sources_used.append("member_profiles")
         
-        # Fetch seasons/champions
         seasons = db.query(Season).order_by(Season.year.desc()).all()
         seasons_data = []
         for s in seasons:
-            # Get champion through team
             champion_name = "Unknown"
             if s.champion_team_id:
                 champ_team = db.query(Team).filter(Team.id == s.champion_team_id).first()
                 if champ_team and champ_team.member:
                     champion_name = champ_team.member.name
-            seasons_data.append({
-                "year": s.year,
-                "champion": champion_name,
-            })
+            seasons_data.append({"year": s.year, "champion": champion_name})
         sources_used.append("season_history")
         
-        # Fetch notable matchup records
         matchups = db.query(Matchup).all()
         if matchups:
-            # Highest score
             highest = max(matchups, key=lambda m: max(m.team1_score or 0, m.team2_score or 0))
             highest_score = max(highest.team1_score or 0, highest.team2_score or 0)
-            
-            # Lowest score (min of non-zero scores)
             valid_scores = [(m, m.team1_score) for m in matchups if m.team1_score and m.team1_score > 0] + \
                           [(m, m.team2_score) for m in matchups if m.team2_score and m.team2_score > 0]
             lowest = min(valid_scores, key=lambda x: x[1]) if valid_scores else (None, 0)
-            
-            # Biggest blowout
             blowouts = [(m, abs((m.team1_score or 0) - (m.team2_score or 0))) for m in matchups if m.team1_score and m.team2_score]
             biggest_blowout = max(blowouts, key=lambda x: x[1]) if blowouts else (None, 0)
-            
-            # Closest game
             close_games = [(m, abs((m.team1_score or 0) - (m.team2_score or 0))) for m in matchups if m.team1_score and m.team2_score and abs(m.team1_score - m.team2_score) > 0]
             closest_game = min(close_games, key=lambda x: x[1]) if close_games else (None, 0)
-            
             records_data = {
                 "highest_score": f"{highest_score:.2f}",
                 "lowest_score": f"{lowest[1]:.2f}" if lowest[0] else "N/A",
@@ -818,17 +991,13 @@ async def ask_commish(request: AskCommishRequest):
         else:
             records_data = {"note": "No matchup data available yet"}
         
-        # Build championship leaderboard
         champ_leaders = sorted(members_data, key=lambda x: x["championships"], reverse=True)[:5]
-        
-        # Build win percentage leaderboard (min 3 seasons)
         qualified = [m for m in members_data if m["seasons"] >= 3]
         win_pct_leaders = sorted(qualified, key=lambda x: x["win_pct"], reverse=True)[:5]
         
     finally:
         db.close()
     
-    # Build context for AI (structured, read-only data)
     data_context = f"""
 === LEAGUE MEMBERS ({len(members_data)} total) ===
 {chr(10).join([f"- {m['name']}: {m['championships']}x champ, {m['wins']}-{m['losses']} ({m['win_pct']}%), {m['seasons']} seasons, best #{m['best_finish']}, worst #{m['worst_finish']}" for m in members_data])}
@@ -852,35 +1021,18 @@ async def ask_commish(request: AskCommishRequest):
 
     try:
         client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        
         message = client.messages.create(
-            model=AI_MODEL,
-            max_tokens=400,
-            temperature=0.7,
+            model=AI_MODEL, max_tokens=400, temperature=0.7,
             system=ASK_COMMISH_SYSTEM_PROMPT + data_context,
-            messages=[
-                {"role": "user", "content": safe_question}
-            ]
+            messages=[{"role": "user", "content": safe_question}]
         )
-        
         answer = message.content[0].text
-        
-        return AskCommishResponse(
-            answer=answer,
-            sources_used=sources_used,
-            model=AI_MODEL_DISPLAY
-        )
+        return AskCommishResponse(answer=answer, sources_used=sources_used, model=AI_MODEL_DISPLAY)
         
     except anthropic.APIError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"AI service error: {str(e)}"
-        )
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process question: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
 
 
 # Example questions for the UI

@@ -114,19 +114,24 @@ export async function checkAIStatus(): Promise<{ available: boolean; provider: s
   return fetchAPI('/api/ai/status');
 }
 
+export interface AITone {
+  id: string;
+  label: string;
+}
+
+export async function getAITones(): Promise<{ tones: AITone[]; default: string }> {
+  return fetchAPI('/api/ai/tones');
+}
+
 export async function getAISummary(
   pageType: string,
-  context: Record<string, unknown>
-): Promise<{ narrative: string; page_type: string; model?: string }> {
+  context: Record<string, unknown>,
+  tone: string = 'commissioner'
+): Promise<{ narrative: string; page_type: string; model?: string; tone: string; cached: boolean }> {
   const res = await fetch(`${API_BASE}/api/ai/summary`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      page_type: pageType,
-      context,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page_type: pageType, context, tone }),
   });
 
   if (!res.ok) {
@@ -141,23 +146,19 @@ export interface BlockInsight {
   block_type: string;
   context: Record<string, unknown>;
   member_context?: Record<string, unknown>;
+  tone?: string;
 }
 
 export async function getBlockInsight(
   blockType: string,
   context: Record<string, unknown>,
-  memberContext?: Record<string, unknown>
-): Promise<{ narrative: string; block_type: string; model: string }> {
+  memberContext?: Record<string, unknown>,
+  tone: string = 'commissioner'
+): Promise<{ narrative: string; block_type: string; model: string; tone: string; cached: boolean }> {
   const res = await fetch(`${API_BASE}/api/ai/block-insight`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      block_type: blockType,
-      context,
-      member_context: memberContext,
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ block_type: blockType, context, member_context: memberContext, tone }),
   });
 
   if (!res.ok) {
@@ -169,14 +170,14 @@ export async function getBlockInsight(
 }
 
 export async function getBatchInsights(
-  blocks: BlockInsight[]
-): Promise<{ insights: Record<string, string>; model: string }> {
+  blocks: BlockInsight[],
+  tone: string = 'commissioner'
+): Promise<{ insights: Record<string, string>; model: string; tone: string; cached: boolean }> {
+  const blocksWithTone = blocks.map(b => ({ ...b, tone }));
   const res = await fetch(`${API_BASE}/api/ai/batch-insights`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ blocks }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ blocks: blocksWithTone }),
   });
 
   if (!res.ok) {
@@ -193,9 +194,7 @@ export async function askCommish(
 ): Promise<{ answer: string; sources_used: string[]; model: string }> {
   const res = await fetch(`${API_BASE}/api/ai/ask`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),
   });
 
@@ -209,5 +208,55 @@ export async function askCommish(
 
 export async function getExampleQuestions(): Promise<{ questions: string[] }> {
   return fetchAPI('/api/ai/example-questions');
+}
+
+// Draft endpoints
+export async function getDraftSeasons() {
+  return fetchAPI<any>('/api/drafts/seasons');
+}
+
+export async function getDraftBoard(year: number) {
+  return fetchAPI<any>(`/api/drafts/board/${year}`);
+}
+
+export async function getDraftReportCard(year: number) {
+  return fetchAPI<any>(`/api/drafts/report-card/${year}`);
+}
+
+export async function getDraftStealsAndBusts(year: number, limit = 10) {
+  return fetchAPI<any>(`/api/drafts/steals-busts/${year}?limit=${limit}`);
+}
+
+export async function getDraftTendencies(memberId: number) {
+  return fetchAPI<any>(`/api/drafts/tendencies/${memberId}`);
+}
+
+export async function getTransactions(year: number, type?: string) {
+  const url = type
+    ? `/api/drafts/transactions/${year}?tx_type=${type}`
+    : `/api/drafts/transactions/${year}`;
+  return fetchAPI<any>(url);
+}
+
+export async function getMemberTransactionActivity(memberId: number) {
+  return fetchAPI<any>(`/api/drafts/transactions/activity/${memberId}`);
+}
+
+export async function getWaiverWireWins(year: number, limit = 15) {
+  return fetchAPI<any>(`/api/drafts/waiver-wire-wins/${year}?limit=${limit}`);
+}
+
+// League history endpoint (for "This Week in League History" widget)
+export async function getLeagueHistory(): Promise<any> {
+  return fetchAPI('/api/matchups/history-this-week');
+}
+
+// Achievements endpoint
+export async function getMemberAchievements(id: number): Promise<any> {
+  return fetchAPI(`/api/members/${id}/achievements`);
+}
+
+export async function getAllAchievements(): Promise<any> {
+  return fetchAPI('/api/members/achievements');
 }
 

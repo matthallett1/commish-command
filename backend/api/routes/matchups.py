@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
+import random
 
 import sys
 from pathlib import Path
@@ -273,3 +275,94 @@ async def get_lowest_scores(
         "title": "Lowest Weekly Scores",
         "scores": scores[:limit]
     }
+
+
+# ---------------------------------------------------------------------------
+# "This Week in League History" endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/history-this-week")
+async def get_history_this_week(db: Session = Depends(get_db)):
+    """
+    Return a few notable matchups that happened around this calendar week
+    in past seasons. If no matches for this exact week, pick random notable ones.
+    """
+    now = datetime.now()
+    # NFL weeks roughly map to calendar weeks Sept-Jan; use a simple week number
+    current_week_of_year = now.isocalendar()[1]
+    # Map calendar week to approximate NFL week (Week 1 ≈ calendar week 36)
+    nfl_week_approx = max(1, current_week_of_year - 35) if current_week_of_year >= 36 else max(1, current_week_of_year + 17)
+    
+    # Try to find matchups from this NFL week across all seasons
+    matchups = db.query(Matchup).filter(
+        Matchup.week == nfl_week_approx,
+        Matchup.team1_score > 0,
+        Matchup.team2_score > 0,
+    ).all()
+    
+    # If no matchups for this week, grab notable ones from any week
+    if not matchups:
+        matchups = db.query(Matchup).filter(
+            Matchup.team1_score > 0,
+            Matchup.team2_score > 0,
+        ).all()
+    
+    if not matchups:
+        return {"moments": [], "week": nfl_week_approx}
+    
+    # Score each matchup for "notability"
+    scored = []
+    for m in matchups:
+        diff = abs((m.team1_score or 0) - (m.team2_score or 0))
+        high_score = max(m.team1_score or 0, m.team2_score or 0)
+        
+        # Notability score: close games, high scores, playoffs, championships all boost it
+        score = 0
+        category = "matchup"
+        
+        if diff < 3:
+            score += 50
+            category = "nail_biter"
+        elif diff > 50:
+            score += 40
+            category = "blowout"
+        
+        if high_score > 150:
+            score += 30
+            category = "high_score" if category == "matchup" else category
+        
+        if m.is_championship:
+            score += 60
+            category = "championship"
+        elif m.is_playoff:
+            score += 20
+        
+        scored.append((m, score, category))
+    
+    # Sort by notability, take top ones
+    scored.sort(key=lambda x: -x[1])
+    
+    # Pick top 3, but add some randomness
+    top_pool = scored[:min(10, len(scored))]
+    selected = random.sample(top_pool, min(3, len(top_pool)))
+    
+    moments = []
+    for m, notability, category in selected:
+        winner = m.team1 if (m.team1_score or 0) > (m.team2_score or 0) else m.team2
+        loser = m.team2 if winner == m.team1 else m.team1
+        
+        moments.append({
+            "season": m.season.year if m.season else None,
+            "week": m.week,
+            "category": category,
+            "team1_manager": m.team1.member.name if m.team1 and m.team1.member else "Unknown",
+            "team1_score": m.team1_score,
+            "team2_manager": m.team2.member.name if m.team2 and m.team2.member else "Unknown",
+            "team2_score": m.team2_score,
+            "winner": winner.member.name if winner and winner.member else "Unknown",
+            "margin": round(abs((m.team1_score or 0) - (m.team2_score or 0)), 2),
+            "is_playoff": m.is_playoff,
+            "is_championship": m.is_championship,
+        })
+    
+    return {"moments": moments, "week": nfl_week_approx}

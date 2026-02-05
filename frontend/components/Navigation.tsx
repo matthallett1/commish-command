@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import DarkModeToggle from './DarkModeToggle';
 
 const navItems = [
   { href: '/', label: 'Home' },
   { href: '/standings', label: 'Standings' },
   { href: '/members', label: 'Members' },
+  { href: '/drafts', label: 'Drafts' },
   { href: '/records', label: 'Records' },
   { href: '/matchups', label: 'Matchups' },
 ];
@@ -79,6 +81,7 @@ export default function Navigation() {
                 {item.label}
               </Link>
             ))}
+            <DarkModeToggle />
           </div>
 
           {/* Mobile menu button */}

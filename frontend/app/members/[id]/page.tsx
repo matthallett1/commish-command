@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import StatCard from '@/components/StatCard';
 import MemberLink from '@/components/MemberLink';
 import AIBlockInsight from '@/components/AIBlockInsight';
-import { getMember, getMemberH2H, getMemberRivalries, getMemberNotableEvents, getBatchInsights, checkAIStatus } from '@/lib/api';
+import ShareButton from '@/components/ShareButton';
+import { getMember, getMemberH2H, getMemberRivalries, getMemberNotableEvents, getBatchInsights, checkAIStatus, getMemberAchievements, getDraftTendencies, getMemberTransactionActivity } from '@/lib/api';
+
+const BADGE_ICONS: Record<string, string> = {
+  dynasty_builder: '👑',
+  one_hit_wonder: '🌟',
+  bridesmaid: '💍',
+  ironman: '🦾',
+  boom_or_bust: '💣',
+  closer: '🎯',
+  punching_bag: '🥊',
+  lucky_charm: '🍀',
+};
 
 export default function MemberProfilePage() {
   const params = useParams();
@@ -18,14 +30,21 @@ export default function MemberProfilePage() {
   const [h2h, setH2H] = useState<any>(null);
   const [rivalries, setRivalries] = useState<any>(null);
   const [notableEvents, setNotableEvents] = useState<any>(null);
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [draftTendencies, setDraftTendencies] = useState<any>(null);
+  const [txActivity, setTxActivity] = useState<any>(null);
   
   // AI Insights state
   const [aiInsights, setAiInsights] = useState<Record<string, string>>({});
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
+  const [currentTone, setCurrentTone] = useState('commissioner');
+
+  // Store fetched data for regeneration
+  const [fetchedData, setFetchedData] = useState<any>(null);
 
   // Fetch AI insights for all blocks
-  const fetchAIInsights = async (memberData: any, h2hData: any, rivalriesData: any, eventsData: any) => {
+  const fetchAIInsights = useCallback(async (memberData: any, h2hData: any, rivalriesData: any, eventsData: any, tone: string = 'commissioner') => {
     try {
       const status = await checkAIStatus();
       if (!status.available) {
@@ -45,57 +64,50 @@ export default function MemberProfilePage() {
       };
 
       const blocks = [
-        {
-          block_type: 'stats_overview',
-          context: { member: memberData },
-          member_context: memberContext,
-        },
-        {
-          block_type: 'notable_moments',
-          context: { notable_events: eventsData },
-          member_context: memberContext,
-        },
-        {
-          block_type: 'season_history',
-          context: { seasons: memberData.seasons || [] },
-          member_context: memberContext,
-        },
-        {
-          block_type: 'rivalries',
-          context: { rivalries: rivalriesData?.rivalries || [] },
-          member_context: memberContext,
-        },
-        {
-          block_type: 'h2h_records',
-          context: { head_to_head: h2hData?.head_to_head || [] },
-          member_context: memberContext,
-        },
+        { block_type: 'stats_overview', context: { member: memberData }, member_context: memberContext },
+        { block_type: 'notable_moments', context: { notable_events: eventsData }, member_context: memberContext },
+        { block_type: 'season_history', context: { seasons: memberData.seasons || [] }, member_context: memberContext },
+        { block_type: 'rivalries', context: { rivalries: rivalriesData?.rivalries || [] }, member_context: memberContext },
+        { block_type: 'h2h_records', context: { head_to_head: h2hData?.head_to_head || [] }, member_context: memberContext },
       ];
 
-      const response = await getBatchInsights(blocks);
+      const response = await getBatchInsights(blocks, tone);
       setAiInsights(response.insights);
+      setCurrentTone(tone);
     } catch (err) {
       console.error('Failed to load AI insights:', err);
     } finally {
       setAiLoading(false);
     }
-  };
+  }, []);
+
+  const handleToneChange = useCallback((tone: string) => {
+    if (fetchedData) {
+      fetchAIInsights(fetchedData.member, fetchedData.h2h, fetchedData.rivalries, fetchedData.events, tone);
+    }
+  }, [fetchedData, fetchAIInsights]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [memberData, h2hData, rivalriesData, eventsData] = await Promise.all([
+        const [memberData, h2hData, rivalriesData, eventsData, achievementsData, draftData, txData] = await Promise.all([
           getMember(memberId),
           getMemberH2H(memberId),
           getMemberRivalries(memberId),
           getMemberNotableEvents(memberId),
+          getMemberAchievements(memberId).catch(() => []),
+          getDraftTendencies(memberId).catch(() => null),
+          getMemberTransactionActivity(memberId).catch(() => null),
         ]);
         setMember(memberData);
         setH2H(h2hData);
         setRivalries(rivalriesData);
         setNotableEvents(eventsData);
+        setAchievements(achievementsData?.achievements || []);
+        setDraftTendencies(draftData);
+        setTxActivity(txData);
+        setFetchedData({ member: memberData, h2h: h2hData, rivalries: rivalriesData, events: eventsData });
         
-        // Fetch AI insights after data loads
         fetchAIInsights(memberData, h2hData, rivalriesData, eventsData);
       } catch (err) {
         console.error('Failed to load member:', err);
@@ -104,7 +116,7 @@ export default function MemberProfilePage() {
       }
     }
     loadData();
-  }, [memberId]);
+  }, [memberId, fetchAIInsights]);
 
   if (loading) {
     return <LoadingSpinner size="lg" />;
@@ -138,6 +150,21 @@ export default function MemberProfilePage() {
             <p className="text-gray-500 mt-1">
               League member since {member.seasons?.[member.seasons.length - 1]?.year || 'N/A'}
             </p>
+            {/* Achievement Badges */}
+            {achievements.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {achievements.map((badge: any) => (
+                  <span
+                    key={badge.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-pink-100 to-rose-100 dark:from-pink-900/30 dark:to-rose-900/30 text-pink-800 dark:text-pink-200 border border-pink-200 dark:border-pink-700"
+                    title={badge.description}
+                  >
+                    <span>{BADGE_ICONS[badge.id] || '🏅'}</span>
+                    <span>{badge.label}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
             {member.total_championships > 0 && (
@@ -174,6 +201,8 @@ export default function MemberProfilePage() {
             narrative={aiInsights['stats_overview'] || null}
             isLoading={aiLoading && !aiInsights['stats_overview']}
             compact
+            currentTone={currentTone}
+            onRegenerate={handleToneChange}
           />
         )}
       </div>
@@ -183,9 +212,9 @@ export default function MemberProfilePage() {
         <div className="card">
           <h2 className="card-header">Notable Moments</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            {/* Highest Score */}
             {notableEvents.highest_score && (
-              <div className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 relative group">
+                <ShareButton text={`${member.name} scored ${notableEvents.highest_score.score} points in Week ${notableEvents.highest_score.week}, ${notableEvents.highest_score.year} — their career high! Via Commish Command`} />
                 <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
                   🔥 Career High Score
                 </h3>
@@ -202,9 +231,9 @@ export default function MemberProfilePage() {
               </div>
             )}
 
-            {/* Biggest Win */}
             {notableEvents.biggest_win && (
-              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 relative group">
+                <ShareButton text={`${member.name} won by +${notableEvents.biggest_win.margin} points — their biggest blowout ever! Via Commish Command`} />
                 <h3 className="text-lg font-semibold text-purple-800 dark:text-purple-200">
                   😤 Biggest Blowout Victory
                 </h3>
@@ -220,9 +249,9 @@ export default function MemberProfilePage() {
               </div>
             )}
 
-            {/* Closest Win */}
             {notableEvents.closest_win && (
-              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 relative group">
+                <ShareButton text={`${member.name} won by just ${notableEvents.closest_win.margin} points — talk about a nail-biter! Via Commish Command`} />
                 <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
                   😰 Closest Victory
                 </h3>
@@ -238,9 +267,9 @@ export default function MemberProfilePage() {
               </div>
             )}
 
-            {/* Worst Loss */}
             {notableEvents.worst_loss && (
-              <div className="p-4 rounded-lg bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 relative group">
+                <ShareButton text={`${member.name} lost by ${notableEvents.worst_loss.margin} points — their worst defeat ever. Via Commish Command`} />
                 <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">
                   💀 Worst Defeat
                 </h3>
@@ -257,7 +286,6 @@ export default function MemberProfilePage() {
             )}
           </div>
 
-          {/* Championship Years */}
           {notableEvents.championship_years && notableEvents.championship_years.length > 0 && (
             <div className="mt-4 p-4 rounded-lg bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20">
               <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">
@@ -278,12 +306,13 @@ export default function MemberProfilePage() {
             </div>
           )}
           
-          {/* AI Insight for Notable Moments */}
           {aiAvailable && (
             <AIBlockInsight 
               narrative={aiInsights['notable_moments'] || null}
               isLoading={aiLoading && !aiInsights['notable_moments']}
               compact
+              currentTone={currentTone}
+              onRegenerate={handleToneChange}
             />
           )}
         </div>
@@ -330,12 +359,13 @@ export default function MemberProfilePage() {
             </tbody>
           </table>
         </div>
-        {/* AI Insight for Season History */}
         {aiAvailable && (
           <AIBlockInsight 
             narrative={aiInsights['season_history'] || null}
             isLoading={aiLoading && !aiInsights['season_history']}
             compact
+            currentTone={currentTone}
+            onRegenerate={handleToneChange}
           />
         )}
       </div>
@@ -373,13 +403,149 @@ export default function MemberProfilePage() {
               </div>
             ))}
           </div>
-          {/* AI Insight for Rivalries */}
           {aiAvailable && (
             <AIBlockInsight 
               narrative={aiInsights['rivalries'] || null}
               isLoading={aiLoading && !aiInsights['rivalries']}
               compact
+              currentTone={currentTone}
+              onRegenerate={handleToneChange}
             />
+          )}
+        </div>
+      )}
+
+      {/* Draft Tendencies */}
+      {draftTendencies && draftTendencies.total_picks > 0 && (
+        <div className="card">
+          <h2 className="card-header">Draft Profile</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{draftTendencies.total_picks}</p>
+              <p className="text-xs text-gray-500">Total Picks</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{draftTendencies.seasons_drafted}</p>
+              <p className="text-xs text-gray-500">Drafts</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-pink-600 dark:text-pink-400">{draftTendencies.favorite_position || '-'}</p>
+              <p className="text-xs text-gray-500">Favorite Position</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+              <p className={`text-2xl font-bold ${
+                draftTendencies.avg_grade === 'A+' || draftTendencies.avg_grade === 'A' ? 'text-green-600' :
+                draftTendencies.avg_grade === 'B' ? 'text-blue-600' :
+                draftTendencies.avg_grade === 'C' ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>{draftTendencies.avg_grade || '-'}</p>
+              <p className="text-xs text-gray-500">Avg Grade</p>
+            </div>
+          </div>
+
+          {/* Position breakdown */}
+          {draftTendencies.position_breakdown && Object.keys(draftTendencies.position_breakdown).length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Position Preferences</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(draftTendencies.position_breakdown).map(([pos, data]: [string, any]) => (
+                  <div key={pos} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
+                    <span className="font-bold text-gray-900 dark:text-white">{pos}</span>
+                    <span className="text-gray-500 ml-1">
+                      {data.count} ({data.percentage}%)
+                    </span>
+                    {data.avg_points > 0 && (
+                      <span className="text-gray-400 ml-1 text-xs">
+                        avg {data.avg_points} pts
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Round 1 History */}
+          {draftTendencies.round_1_history?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">First Round Picks</h3>
+              <div className="space-y-1">
+                {draftTendencies.round_1_history.map((pick: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-yellow-50/50 dark:bg-yellow-900/10 rounded px-3 py-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 font-mono w-10">{pick.season}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{pick.player_name}</span>
+                      <span className="text-xs text-gray-500">{pick.player_position}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {pick.season_points != null && (
+                        <span className="text-gray-500 text-xs">{pick.season_points?.toFixed(1)} pts</span>
+                      )}
+                      {pick.grade && (
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          pick.grade === 'A+' || pick.grade === 'A' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                          pick.grade === 'B' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                          pick.grade === 'C' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        }`}>
+                          {pick.grade}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transaction Activity */}
+      {txActivity && txActivity.total_transactions > 0 && (
+        <div className="card">
+          <h2 className="card-header">Transaction Activity</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{txActivity.total_transactions}</p>
+              <p className="text-xs text-gray-500">Total Transactions</p>
+            </div>
+            {txActivity.type_breakdown && Object.entries(txActivity.type_breakdown).map(([type, count]: [string, any]) => (
+              <div key={type} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                <p className={`text-2xl font-bold ${
+                  type === 'add' ? 'text-green-600' :
+                  type === 'drop' ? 'text-red-600' :
+                  type === 'trade' ? 'text-purple-600' :
+                  'text-blue-600'
+                }`}>{count}</p>
+                <p className="text-xs text-gray-500 capitalize">{type}s</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Top Waiver Pickups */}
+          {txActivity.top_waiver_pickups?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Top Waiver Wire Pickups</h3>
+              <div className="space-y-1">
+                {txActivity.top_waiver_pickups.map((pickup: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-green-50/50 dark:bg-green-900/10 rounded px-3 py-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 font-mono w-10">{pickup.season}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{pickup.player_name}</span>
+                      <span className="text-xs text-gray-500">{pickup.player_position}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {pickup.points_scored?.toFixed(1)} pts
+                      </span>
+                      {pickup.games_played > 0 && (
+                        <span className="text-xs text-gray-400">{pickup.games_played}G</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -427,12 +593,13 @@ export default function MemberProfilePage() {
               </tbody>
             </table>
           </div>
-          {/* AI Insight for H2H Records */}
           {aiAvailable && (
             <AIBlockInsight 
               narrative={aiInsights['h2h_records'] || null}
               isLoading={aiLoading && !aiInsights['h2h_records']}
               compact
+              currentTone={currentTone}
+              onRegenerate={handleToneChange}
             />
           )}
         </div>

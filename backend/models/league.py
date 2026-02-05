@@ -85,6 +85,7 @@ class Season(Base):
     matchups = relationship("Matchup", back_populates="season")
     standings = relationship("Standing", back_populates="season")
     draft_picks = relationship("DraftPick", back_populates="season")
+    transactions = relationship("Transaction", back_populates="season")
     
     __table_args__ = (
         UniqueConstraint('league_id', 'year', name='uix_league_year'),
@@ -129,6 +130,7 @@ class Team(Base):
     away_matchups = relationship("Matchup", foreign_keys="Matchup.team2_id", back_populates="team2")
     standings = relationship("Standing", back_populates="team")
     draft_picks = relationship("DraftPick", back_populates="team")
+    transactions = relationship("Transaction", back_populates="team", foreign_keys="Transaction.team_id")
     
     __table_args__ = (
         UniqueConstraint('season_id', 'yahoo_team_key', name='uix_season_yahoo_team'),

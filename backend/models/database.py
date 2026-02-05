@@ -40,7 +40,7 @@ def get_db():
 def init_db():
     """Initialize the database with all tables."""
     # Import all models to ensure they're registered
-    from . import league, matchup, draft
+    from . import league, matchup, draft, ai_cache
     
     Base.metadata.create_all(bind=engine)
     print(f"Database initialized at: {settings.database_url}")

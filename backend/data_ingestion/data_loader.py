@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from models.database import SessionLocal, init_db
 from models.league import League, Season, Team, Member
 from models.matchup import Matchup, Standing
-from models.draft import DraftPick
+from models.draft import DraftPick, Transaction
 from config import DATA_DIR
 
 
@@ -103,6 +103,7 @@ class DataLoader:
             "matchups": 0,
             "standings": 0,
             "draft_picks": 0,
+            "transactions": 0,
         }
         
         # Get or create the main league
@@ -335,6 +336,57 @@ class DataLoader:
                 )
                 self.db.add(draft_pick)
                 counts["draft_picks"] += 1
+        
+        # Process transactions
+        for tx_data in data.get("transactions", []):
+            season_year = tx_data.get("season")
+            
+            # Find season
+            season = None
+            for s in season_map.values():
+                if s.year == season_year:
+                    season = s
+                    break
+            
+            if not season:
+                continue
+            
+            # Find team
+            team = team_map.get(tx_data.get("team_id"))
+            if not team:
+                continue
+            
+            # Parse timestamp
+            ts = tx_data.get("timestamp")
+            if isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts)
+                except (ValueError, TypeError):
+                    ts = datetime.utcnow()
+            elif not isinstance(ts, datetime):
+                ts = datetime.utcnow()
+            
+            # Check if transaction exists (by season, team, player, type, timestamp)
+            existing = self.db.query(Transaction).filter(
+                Transaction.season_id == season.id,
+                Transaction.team_id == team.id,
+                Transaction.player_id == tx_data.get("player_id"),
+                Transaction.type == tx_data.get("type", "unknown"),
+            ).first()
+            
+            if not existing:
+                transaction = Transaction(
+                    season_id=season.id,
+                    team_id=team.id,
+                    type=tx_data.get("type", "unknown"),
+                    timestamp=ts,
+                    player_id=tx_data.get("player_id"),
+                    player_name=tx_data.get("player_name", "Unknown"),
+                    player_position=tx_data.get("player_position"),
+                    trade_details=tx_data.get("details"),
+                )
+                self.db.add(transaction)
+                counts["transactions"] += 1
         
         self.db.commit()
         

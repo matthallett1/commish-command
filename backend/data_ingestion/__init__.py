@@ -1,6 +1,9 @@
 """Data ingestion modules for Top Pot Dashboard."""
 
 from .yahoo_client import YahooFantasyClient
-from .imessage_parser import iMessageParser
 
-__all__ = ["YahooFantasyClient", "iMessageParser"]
+try:
+    from .imessage_parser import iMessageParser
+    __all__ = ["YahooFantasyClient", "iMessageParser"]
+except ImportError:
+    __all__ = ["YahooFantasyClient"]

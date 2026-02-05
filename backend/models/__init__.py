@@ -4,6 +4,7 @@ from .database import Base, engine, SessionLocal, get_db
 from .league import League, Season, Team, Member
 from .matchup import Matchup, Standing
 from .draft import DraftPick, Transaction
+from .ai_cache import AICache
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "Standing",
     "DraftPick",
     "Transaction",
+    "AICache",
 ]

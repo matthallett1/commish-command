@@ -100,5 +100,9 @@ class Transaction(Base):
     games_played = Column(Integer, default=0)  # Games played for this team
     points_scored = Column(Float, default=0)  # Points scored for this team
     
+    # Relationships
+    season = relationship("Season", back_populates="transactions")
+    team = relationship("Team", back_populates="transactions", foreign_keys=[team_id])
+    
     def __repr__(self):
         return f"<Transaction {self.type}: {self.player_name}>"

@@ -72,6 +72,7 @@ def sync_yahoo_data(league_filter: str = "top pot", force_full: bool = False):
         print(f"  Matchups: {counts.get('matchups', 0)}")
         print(f"  Standings: {counts.get('standings', 0)}")
         print(f"  Draft picks: {counts.get('draft_picks', 0)}")
+        print(f"  Transactions: {counts.get('transactions', 0)}")
         
         return True
         

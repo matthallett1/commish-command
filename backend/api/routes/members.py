@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 from pydantic import BaseModel
+import math
 
 import sys
 from pathlib import Path
@@ -15,6 +16,99 @@ from models.league import Member, Team, Season
 from models.matchup import Matchup
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Achievement badge definitions
+# ---------------------------------------------------------------------------
+
+def _calculate_achievements(member: Member, teams: list, all_matchups_for_member: list, total_seasons_in_league: int) -> list:
+    """Calculate achievement badges for a member based on their data."""
+    badges = []
+    
+    total_games = member.total_wins + member.total_losses
+    
+    # Dynasty Builder: 2+ championships
+    if member.total_championships >= 2:
+        badges.append({
+            "id": "dynasty_builder",
+            "label": "Dynasty Builder",
+            "description": f"{member.total_championships} championships — a true dynasty",
+        })
+    
+    # One-Hit Wonder: Exactly 1 championship
+    if member.total_championships == 1:
+        badges.append({
+            "id": "one_hit_wonder",
+            "label": "One-Hit Wonder",
+            "description": "One ring to rule them all",
+        })
+    
+    # Bridesmaid: 3+ runner-up (final_rank == 2), no championships
+    runner_ups = sum(1 for t in teams if t.final_rank == 2)
+    if runner_ups >= 3 and member.total_championships == 0:
+        badges.append({
+            "id": "bridesmaid",
+            "label": "Always a Bridesmaid",
+            "description": f"Finished 2nd place {runner_ups} times without a title",
+        })
+    
+    # Ironman: Played every season
+    if member.total_seasons >= total_seasons_in_league and total_seasons_in_league > 0:
+        badges.append({
+            "id": "ironman",
+            "label": "Ironman",
+            "description": f"Played all {total_seasons_in_league} seasons — day-one member",
+        })
+    
+    # Boom or Bust: Highest variance in weekly scores (std dev > 25 across matchups)
+    if all_matchups_for_member:
+        scores = []
+        member_team_ids = {t.id for t in teams}
+        for m in all_matchups_for_member:
+            if m.team1_id in member_team_ids and m.team1_score and m.team1_score > 0:
+                scores.append(m.team1_score)
+            elif m.team2_id in member_team_ids and m.team2_score and m.team2_score > 0:
+                scores.append(m.team2_score)
+        if len(scores) >= 10:
+            mean = sum(scores) / len(scores)
+            variance = sum((x - mean) ** 2 for x in scores) / len(scores)
+            std_dev = math.sqrt(variance)
+            if std_dev > 25:
+                badges.append({
+                    "id": "boom_or_bust",
+                    "label": "Boom or Bust",
+                    "description": f"Weekly scores swing wildly (std dev: {std_dev:.1f})",
+                })
+    
+    # Closer: Most wins by under 5 points
+    if all_matchups_for_member:
+        close_wins = 0
+        member_team_ids = {t.id for t in teams}
+        for m in all_matchups_for_member:
+            if m.team1_id in member_team_ids:
+                our, opp = m.team1_score or 0, m.team2_score or 0
+            else:
+                our, opp = m.team2_score or 0, m.team1_score or 0
+            if our > opp and (our - opp) < 5:
+                close_wins += 1
+        if close_wins >= 8:
+            badges.append({
+                "id": "closer",
+                "label": "The Closer",
+                "description": f"{close_wins} wins by less than 5 points — ice in their veins",
+            })
+    
+    # Lucky Charm: Win percentage > 55% with fewer than average points
+    win_pct = (member.total_wins / total_games * 100) if total_games > 0 else 0
+    if win_pct > 55 and member.total_seasons >= 3:
+        badges.append({
+            "id": "lucky_charm",
+            "label": "Lucky Charm",
+            "description": f"{win_pct:.1f}% win rate — fortune favors this manager",
+        })
+    
+    return badges
 
 
 class MemberSummary(BaseModel):
@@ -378,3 +472,50 @@ async def get_member_notable_events(member_id: int, db: Session = Depends(get_db
         "worst_loss": worst_loss,
         "championship_years": championship_years,
     }
+
+
+# ---------------------------------------------------------------------------
+# Achievement endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/{member_id}/achievements")
+async def get_member_achievements(member_id: int, db: Session = Depends(get_db)):
+    """Get achievement badges for a member."""
+    member = db.query(Member).filter(Member.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    teams = db.query(Team).filter(Team.member_id == member_id).all()
+    team_ids = [t.id for t in teams]
+    matchups = db.query(Matchup).filter(
+        (Matchup.team1_id.in_(team_ids)) | (Matchup.team2_id.in_(team_ids))
+    ).all()
+    
+    total_seasons = db.query(func.count(func.distinct(Season.id))).scalar() or 0
+    badges = _calculate_achievements(member, teams, matchups, total_seasons)
+    
+    return {"member": member.name, "achievements": badges}
+
+
+@router.get("/achievements", response_model=None)
+async def get_all_achievements(db: Session = Depends(get_db)):
+    """Get achievement badges for all members."""
+    members = db.query(Member).all()
+    total_seasons = db.query(func.count(func.distinct(Season.id))).scalar() or 0
+    
+    results = []
+    for member in members:
+        teams = db.query(Team).filter(Team.member_id == member.id).all()
+        team_ids = [t.id for t in teams]
+        matchups = db.query(Matchup).filter(
+            (Matchup.team1_id.in_(team_ids)) | (Matchup.team2_id.in_(team_ids))
+        ).all()
+        badges = _calculate_achievements(member, teams, matchups, total_seasons)
+        if badges:
+            results.append({
+                "member_id": member.id,
+                "member": member.name,
+                "achievements": badges,
+            })
+    
+    return {"members": results}

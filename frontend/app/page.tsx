@@ -6,6 +6,7 @@ import StatCard from '@/components/StatCard';
 import ChampionBanner from '@/components/ChampionBanner';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import LeagueHistoryWidget from '@/components/LeagueHistoryWidget';
 import { getLeague, getChampions, getMembers, getPowerRankings } from '@/lib/api';
 
 export default function HomePage() {
@@ -162,6 +163,9 @@ export default function HomePage() {
           />
         )}
       </div>
+
+      {/* This Week in League History */}
+      <LeagueHistoryWidget />
 
       {/* Quick Links */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

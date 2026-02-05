@@ -406,15 +406,62 @@ class YahooFantasyClient:
         return all_matchups
     
     def get_draft_results(self, league_id: str) -> List[DraftPick]:
-        """Get draft results for a league."""
+        """Get draft results for a league with team/manager names populated.
+
+        The yahoo_fantasy_api library's draft_results() returns flat dicts:
+            {'pick': 1, 'round': 1, 'team_key': '388.l.27081.t.4', 'player_id': 9490}
+        Player names/positions require a separate player_details() call.
+        """
         league = self.get_league(league_id)
         season = self._extract_season(league_id)
         
         try:
             draft_data = league.draft_results()
         except Exception as e:
-            print(f"Error fetching draft results: {e}")
+            print(f"  Error fetching draft results: {e}")
             return []
+        
+        if not draft_data:
+            print(f"  No draft data available")
+            return []
+        
+        # Build team lookup for populating names
+        teams = self.get_teams(league_id)
+        team_lookup: Dict[str, Dict[str, str]] = {}
+        for t in teams:
+            team_lookup[t["team_key"]] = {"name": t["name"], "manager": t["manager"]}
+        
+        # Collect player IDs and batch-fetch details (names, positions)
+        player_ids = []
+        for p in draft_data:
+            if isinstance(p, dict) and p.get("player_id") is not None:
+                try:
+                    player_ids.append(int(p["player_id"]))
+                except (ValueError, TypeError):
+                    pass
+        
+        player_details_map: Dict[int, Dict] = {}
+        if player_ids:
+            # Fetch in batches of 25 (library handles batching internally,
+            # but we wrap in try/except per batch for resilience)
+            batch_size = 25
+            print(f"  Fetching player details for {len(player_ids)} picks...", end="", flush=True)
+            for i in range(0, len(player_ids), batch_size):
+                batch = player_ids[i:i + batch_size]
+                try:
+                    details_list = league.player_details(batch)
+                    for detail in details_list:
+                        if isinstance(detail, dict):
+                            pid = detail.get("player_id")
+                            if pid is not None:
+                                player_details_map[int(pid)] = detail
+                    print(".", end="", flush=True)
+                except Exception as e:
+                    # Some players may no longer exist in Yahoo's system
+                    # (especially older seasons). Skip the batch gracefully.
+                    print(f"x", end="", flush=True)
+                time.sleep(0.3)
+            print(f" got {len(player_details_map)} of {len(player_ids)}", flush=True)
         
         def safe_int(val, default=0):
             if val is None or val == '':
@@ -424,32 +471,292 @@ class YahooFantasyClient:
             except (ValueError, TypeError):
                 return default
         
-        def safe_str(val, default=""):
-            if val is None:
-                return default
-            return str(val)
-        
         picks = []
         for pick_data in draft_data:
             if not isinstance(pick_data, dict):
                 continue
-            pick = pick_data.get("draft_result", {})
-            if not isinstance(pick, dict):
-                continue
+            
+            # draft_results() returns flat dicts — no wrapper key
+            team_key = str(pick_data.get("team_key", ""))
+            team_info = team_lookup.get(team_key, {})
+            player_id = pick_data.get("player_id")
+            
+            round_num = safe_int(pick_data.get("round"))
+            pick_num = safe_int(pick_data.get("pick"))
+            
+            if round_num == 0 and pick_num == 0:
+                continue  # Skip empty/invalid picks
+            
+            # Look up player name and position from details
+            pid_int = safe_int(player_id) if player_id is not None else 0
+            player_info = player_details_map.get(pid_int, {})
+            
+            name_data = player_info.get("name", {})
+            if isinstance(name_data, dict):
+                player_name = name_data.get("full", f"Player #{pid_int}")
+            else:
+                player_name = str(name_data) if name_data else f"Player #{pid_int}"
+            
+            player_position = str(
+                player_info.get("display_position")
+                or player_info.get("primary_position")
+                or ""
+            )
             
             picks.append(DraftPick(
                 season=season,
-                round=safe_int(pick.get("round", 0)),
-                pick=safe_int(pick.get("pick", 0)),
-                team_id=safe_str(pick.get("team_key", "")),
-                team_name="",  # Will be populated later
-                manager_name="",
-                player_id=safe_str(pick.get("player_key", "")),
-                player_name=safe_str(pick.get("player_name", "Unknown")),
-                player_position=safe_str(pick.get("player_position", "")),
+                round=round_num,
+                pick=pick_num,
+                team_id=team_key,
+                team_name=team_info.get("name", ""),
+                manager_name=team_info.get("manager", ""),
+                player_id=str(player_id) if player_id is not None else "",
+                player_name=player_name,
+                player_position=player_position,
             ))
         
+        if picks:
+            print(f"  Fetched {len(picks)} draft picks")
+        
         return picks
+    
+    def get_transactions(self, league_id: str) -> List[Transaction]:
+        """Get transaction history for a league (adds, drops, trades, waivers).
+
+        The yahoo_fantasy_api library's transactions(tran_types, count) returns
+        flat dicts that merge transaction metadata with player data:
+            {'type': 'add', 'timestamp': '...', 'players': {...}, ...}
+        """
+        league = self.get_league(league_id)
+        season = self._extract_season(league_id)
+        
+        # Build team lookup
+        teams = self.get_teams(league_id)
+        team_lookup: Dict[str, Dict[str, str]] = {}
+        for t in teams:
+            team_lookup[t["team_key"]] = {"name": t["name"], "manager": t["manager"]}
+        
+        transactions = []
+        
+        # Fetch different transaction types
+        # The library requires (tran_types: str, count: str) arguments
+        for tran_type in ["add,drop", "trade"]:
+            try:
+                raw_transactions = league.transactions(tran_type, "")
+            except Exception as e:
+                print(f"  Error fetching {tran_type} transactions: {e}")
+                continue
+            
+            if not raw_transactions:
+                continue
+            
+            for tx_data in raw_transactions:
+                if not isinstance(tx_data, dict):
+                    continue
+                
+                tx_type = str(tx_data.get("type", "unknown"))
+                timestamp_str = tx_data.get("timestamp")
+                try:
+                    ts = datetime.fromtimestamp(int(timestamp_str)) if timestamp_str else datetime.utcnow()
+                except (ValueError, TypeError):
+                    ts = datetime.utcnow()
+                
+                # For trades, capture trader/tradee info
+                trader_team_key = str(tx_data.get("trader_team_key", ""))
+                tradee_team_key = str(tx_data.get("tradee_team_key", ""))
+                
+                # Players are merged at top level as numbered keys
+                # e.g. tx_data["0"], tx_data["1"], etc. with tx_data["count"]
+                players_count = 0
+                if "count" in tx_data:
+                    try:
+                        players_count = int(tx_data["count"])
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Also check for a nested "players" dict (format can vary)
+                players_container = tx_data
+                if "players" in tx_data and isinstance(tx_data["players"], dict):
+                    players_container = tx_data["players"]
+                    if "count" in players_container:
+                        try:
+                            players_count = int(players_container["count"])
+                        except (ValueError, TypeError):
+                            pass
+                
+                if players_count == 0:
+                    # Try to find numbered keys directly
+                    for k in tx_data.keys():
+                        if k.isdigit():
+                            players_count = max(players_count, int(k) + 1)
+                
+                for i in range(players_count):
+                    player_entry = players_container.get(str(i), {})
+                    if not isinstance(player_entry, dict):
+                        continue
+                    
+                    player_list = player_entry.get("player", [])
+                    
+                    # player_list is typically [list_of_info_dicts, {transaction_data: {...}}]
+                    player_info = {}
+                    tx_inner = {}
+                    
+                    if isinstance(player_list, list) and len(player_list) >= 2:
+                        # First element: list of dicts with player info
+                        if isinstance(player_list[0], list):
+                            for item in player_list[0]:
+                                if isinstance(item, dict):
+                                    player_info.update(item)
+                        elif isinstance(player_list[0], dict):
+                            player_info = player_list[0]
+                        
+                        # Second element: dict with transaction_data
+                        if isinstance(player_list[1], dict):
+                            td = player_list[1].get("transaction_data", {})
+                            if isinstance(td, dict):
+                                tx_inner = td
+                            elif isinstance(td, list):
+                                for item in td:
+                                    if isinstance(item, dict):
+                                        tx_inner.update(item)
+                    elif isinstance(player_list, dict):
+                        player_info = player_list
+                    
+                    # Extract player name
+                    name_data = player_info.get("name", {})
+                    if isinstance(name_data, dict):
+                        player_name = name_data.get("full", "Unknown")
+                    else:
+                        player_name = str(name_data) if name_data else "Unknown"
+                    
+                    player_id = str(player_info.get("player_key", ""))
+                    player_position = str(player_info.get("display_position", ""))
+                    
+                    # Determine action type and team from transaction_data
+                    action_type = str(tx_inner.get("type", tx_type))
+                    dest_team_key = str(
+                        tx_inner.get("destination_team_key", "")
+                        or tx_inner.get("source_team_key", "")
+                    )
+                    
+                    # Fallback for trades
+                    if not dest_team_key and trader_team_key:
+                        dest_team_key = trader_team_key
+                    
+                    team_key = dest_team_key
+                    team_info = team_lookup.get(team_key, {})
+                    
+                    transactions.append(Transaction(
+                        season=season,
+                        timestamp=ts,
+                        type=str(action_type),
+                        team_id=team_key,
+                        team_name=team_info.get("name", ""),
+                        manager_name=team_info.get("manager", ""),
+                        player_id=player_id,
+                        player_name=player_name,
+                        details=json.dumps({
+                            "transaction_type": tx_type,
+                            "action": action_type,
+                        }),
+                    ))
+            
+            time.sleep(0.5)  # Rate limiting between transaction types
+        
+        if transactions:
+            print(f"  Fetched {len(transactions)} transactions")
+        
+        return transactions
+    
+    def get_player_stats_for_draft(self, league_id: str, draft_picks: List[DraftPick],
+                                     delay: float = 0.5) -> List[Dict[str, Any]]:
+        """
+        Fetch season stats for each drafted player.
+        
+        Returns a list of dicts with player_id, season_points, position_rank, and adp.
+        Rate-limited to avoid hitting Yahoo API limits.
+        """
+        league = self.get_league(league_id)
+        season = self._extract_season(league_id)
+        results = []
+        total = len(draft_picks)
+        
+        print(f"  Fetching player stats for {total} draft picks...", end="", flush=True)
+        
+        for i, pick in enumerate(draft_picks):
+            if not pick.player_id:
+                results.append({
+                    "player_id": pick.player_id,
+                    "season_points": None,
+                    "position_rank": None,
+                    "adp": None,
+                })
+                continue
+            
+            player_stats = {
+                "player_id": pick.player_id,
+                "season_points": None,
+                "position_rank": None,
+                "adp": None,
+            }
+            
+            try:
+                # Try to get player stats for the season
+                # The player_key format is typically: {game_id}.p.{player_id_num}
+                stats_data = league.player_stats([pick.player_id], "season")
+                if stats_data and isinstance(stats_data, list) and len(stats_data) > 0:
+                    for stat_entry in stats_data:
+                        if not isinstance(stat_entry, dict):
+                            continue
+                        player_data = stat_entry.get("player", {})
+                        if not isinstance(player_data, dict):
+                            continue
+                        
+                        # Get total points from player_points
+                        player_points = player_data.get("player_points", {})
+                        if isinstance(player_points, dict):
+                            total_pts = player_points.get("total")
+                            if total_pts is not None:
+                                try:
+                                    player_stats["season_points"] = float(total_pts)
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception as e:
+                # Silently skip — not all players will have stats
+                pass
+            
+            try:
+                # Try to get ADP data
+                draft_analysis = league.player_details([pick.player_id])
+                if draft_analysis and isinstance(draft_analysis, list):
+                    for detail in draft_analysis:
+                        if not isinstance(detail, dict):
+                            continue
+                        player_data = detail.get("player", {})
+                        if not isinstance(player_data, dict):
+                            continue
+                        adp_val = player_data.get("draft_analysis", {})
+                        if isinstance(adp_val, dict):
+                            avg_pick = adp_val.get("average_pick")
+                            if avg_pick is not None:
+                                try:
+                                    player_stats["adp"] = float(avg_pick)
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception:
+                pass
+            
+            results.append(player_stats)
+            
+            # Progress indicator every 10 players
+            if (i + 1) % 10 == 0:
+                print(".", end="", flush=True)
+            
+            # Rate limiting
+            time.sleep(delay)
+        
+        print(f" done ({len(results)} players)", flush=True)
+        return results
     
     def get_teams(self, league_id: str) -> List[Dict[str, Any]]:
         """Get all teams in a league."""
@@ -500,6 +807,7 @@ class YahooFantasyClient:
             "matchups": [],
             "teams": [],
             "draft_picks": [],
+            "transactions": [],
         }
         
         print(f"Found {len(all_league_ids)} total leagues", flush=True)
@@ -532,6 +840,10 @@ class YahooFantasyClient:
                 # Get draft results
                 draft_picks = self.get_draft_results(league_id)
                 historical_data["draft_picks"].extend([asdict(p) for p in draft_picks])
+                
+                # Get transactions
+                transactions = self.get_transactions(league_id)
+                historical_data["transactions"].extend([asdict(t) for t in transactions])
                 
                 time.sleep(1)  # Rate limiting between leagues
                 
@@ -663,3 +975,4 @@ if __name__ == "__main__":
         print(f"  Matchups: {len(data['matchups'])}")
         print(f"  Teams: {len(data['teams'])}")
         print(f"  Draft picks: {len(data['draft_picks'])}")
+        print(f"  Transactions: {len(data.get('transactions', []))}")
