@@ -77,20 +77,21 @@ export default function DraftsPage() {
   // Load tab data when season or tab changes
   useEffect(() => {
     if (!selectedYear) return;
+    const year = selectedYear;
 
     async function loadTabData() {
       setTabLoading(true);
       try {
         switch (activeTab) {
           case 'board':
-            if (!draftBoard || draftBoard.season !== selectedYear) {
-              const data = await getDraftBoard(selectedYear);
+            if (!draftBoard || draftBoard.season !== year) {
+              const data = await getDraftBoard(year);
               setDraftBoard(data);
             }
             break;
           case 'report-cards':
-            if (!reportCards || reportCards.season !== selectedYear) {
-              const data = await getDraftReportCard(selectedYear);
+            if (!reportCards || reportCards.season !== year) {
+              const data = await getDraftReportCard(year);
               setReportCards(data);
               // Fetch AI narrative
               if (!hasFetchedAI.current) {
@@ -100,13 +101,13 @@ export default function DraftsPage() {
             }
             break;
           case 'steals-busts':
-            if (!stealsAndBusts || stealsAndBusts.season !== selectedYear) {
-              const data = await getDraftStealsAndBusts(selectedYear);
+            if (!stealsAndBusts || stealsAndBusts.season !== year) {
+              const data = await getDraftStealsAndBusts(year);
               setStealsAndBusts(data);
             }
             break;
           case 'transactions':
-            const data = await getTransactions(selectedYear, txTypeFilter || undefined);
+            const data = await getTransactions(year, txTypeFilter || undefined);
             setTransactions(data);
             break;
         }
