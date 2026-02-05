@@ -3,9 +3,47 @@ import './globals.css';
 import Navigation from '@/components/Navigation';
 import AskTheCommish from '@/components/AskTheCommish';
 
+const siteTitle = 'Commish Command';
+const siteDescription =
+  'Your league. Your rules. Your regime. 12 seasons of fantasy football history — drafts, records, head-to-head rivalries, and AI-powered analysis.';
+
 export const metadata: Metadata = {
-  title: 'Commish Command - Fantasy Football Dashboard',
-  description: 'Your league. Your rules. Your regime. Historical stats and analytics for fantasy football commissioners.',
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ),
+  title: {
+    default: `${siteTitle} — Fantasy Football Dashboard`,
+    template: `%s | ${siteTitle}`,
+  },
+  description: siteDescription,
+  applicationName: siteTitle,
+  keywords: [
+    'fantasy football',
+    'commissioner',
+    'league history',
+    'draft board',
+    'head to head',
+    'power rankings',
+    'stats',
+    'analytics',
+  ],
+  openGraph: {
+    type: 'website',
+    siteName: siteTitle,
+    title: `${siteTitle} — Fantasy Football Dashboard`,
+    description: siteDescription,
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${siteTitle} — Fantasy Football Dashboard`,
+    description: siteDescription,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
