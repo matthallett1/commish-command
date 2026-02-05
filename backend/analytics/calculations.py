@@ -424,8 +424,12 @@ def calculate_draft_grades(db: Session, season_id: int) -> List[Dict[str, Any]]:
     for p in scored:
         if p.adp and p.adp > 0:
             p.value_over_adp = p.adp - p.pick_number  # Positive = picked later than ADP (value)
+        else:
+            # When ADP is unavailable, use pick_number as the baseline
+            # (value_over_adp = 0 means "drafted at expected slot")
+            p.value_over_adp = 0.0
         
-        # Grade based on season rank vs pick position
+        # Grade based on season rank vs pick position (works with or without ADP)
         p.calculate_grade()
     
     db.commit()
@@ -614,6 +618,102 @@ def calculate_waiver_impact(db: Session, season_id: int) -> List[Dict[str, Any]]
     
     results.sort(key=lambda x: -x["total_waiver_points"])
     return results
+
+
+def calculate_draft_heuristic_fallback(db: Session, season_id: int) -> int:
+    """
+    Populate estimated season_points for draft picks that are missing Yahoo API data.
+    
+    Uses a heuristic based on team performance (final rank, points_for) and
+    pick position to estimate the value each pick delivered:
+    
+    - Teams that finished higher and scored more points had better overall rosters.
+    - Early-round picks account for a larger share of team production.
+    - Late-round picks on championship teams are likely steals; early picks on
+      last-place teams are likely busts.
+    
+    Returns the number of picks updated.
+    """
+    from models.league import Team, Season
+    
+    season = db.query(Season).get(season_id)
+    if not season:
+        return 0
+    
+    # Get all picks for this season that are MISSING season_points
+    picks = (
+        db.query(DraftPick)
+        .filter(
+            DraftPick.season_id == season_id,
+            DraftPick.season_points.is_(None),
+        )
+        .all()
+    )
+    
+    if not picks:
+        return 0
+    
+    # Get all teams for this season with their performance data
+    teams = db.query(Team).filter(Team.season_id == season_id).all()
+    if not teams:
+        return 0
+    
+    # Build team performance lookup
+    # We use points_for as the primary signal since it directly measures scoring
+    team_perf = {}
+    for t in teams:
+        team_perf[t.id] = {
+            "points_for": t.points_for or 0,
+            "final_rank": t.final_rank or 99,
+            "num_teams": season.num_teams or 12,
+        }
+    
+    # Determine total picks per team to calculate per-pick share
+    team_pick_counts: Dict[int, int] = defaultdict(int)
+    all_season_picks = (
+        db.query(DraftPick)
+        .filter(DraftPick.season_id == season_id)
+        .all()
+    )
+    total_rounds = max((p.round for p in all_season_picks), default=15)
+    for p in all_season_picks:
+        team_pick_counts[p.team_id] += 1
+    
+    updated = 0
+    for pick in picks:
+        perf = team_perf.get(pick.team_id)
+        if not perf or perf["points_for"] <= 0:
+            continue
+        
+        total_picks_for_team = team_pick_counts.get(pick.team_id, total_rounds)
+        if total_picks_for_team == 0:
+            continue
+        
+        # Weight early picks more heavily than later picks.
+        # Round 1 pick gets more credit than a round 15 pick.
+        # Use a decay: weight = (total_rounds - round + 1) / sum(1..total_rounds)
+        round_weight = (total_rounds - pick.round + 1) / sum(range(1, total_rounds + 1))
+        
+        # Estimate this pick's contribution as a weighted share of team points.
+        # Multiply team total points by the round weight, normalized by total picks.
+        estimated_points = perf["points_for"] * round_weight * total_picks_for_team / total_rounds
+        
+        # Apply a rank-based multiplier: top teams' picks get a slight boost,
+        # bottom teams' picks get a slight penalty (reflects roster quality signal).
+        num_teams = perf["num_teams"]
+        rank = perf["final_rank"]
+        # rank_factor ranges from ~1.15 (rank 1) to ~0.85 (rank 12) for 12 teams
+        rank_factor = 1.0 + 0.15 * (1.0 - 2.0 * (rank - 1) / max(num_teams - 1, 1))
+        
+        estimated_points *= rank_factor
+        
+        pick.season_points = round(estimated_points, 1)
+        updated += 1
+    
+    if updated > 0:
+        db.commit()
+    
+    return updated
 
 
 def calculate_league_draft_overview(db: Session) -> Dict[str, Any]:

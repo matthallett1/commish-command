@@ -927,6 +927,7 @@ async def ask_commish(request: AskCommishRequest):
     from models.database import SessionLocal
     from models.league import Member, Season, Team
     from models.matchup import Matchup
+    from models.draft import DraftPick, Transaction
     
     if not settings.anthropic_configured:
         raise HTTPException(status_code=503, detail="AI features are not available. ANTHROPIC_API_KEY not configured.")
@@ -945,7 +946,9 @@ async def ask_commish(request: AskCommishRequest):
     try:
         members = db.query(Member).all()
         members_data = []
+        member_id_to_name = {}
         for m in members:
+            member_id_to_name[m.id] = m.name
             teams = db.query(Team).filter(Team.member_id == m.id).all()
             finishes = [t.final_rank for t in teams if t.final_rank]
             best_finish = min(finishes) if finishes else None
@@ -959,6 +962,7 @@ async def ask_commish(request: AskCommishRequest):
         sources_used.append("member_profiles")
         
         seasons = db.query(Season).order_by(Season.year.desc()).all()
+        season_id_to_year = {s.id: s.year for s in seasons}
         seasons_data = []
         for s in seasons:
             champion_name = "Unknown"
@@ -995,6 +999,108 @@ async def ask_commish(request: AskCommishRequest):
         qualified = [m for m in members_data if m["seasons"] >= 3]
         win_pct_leaders = sorted(qualified, key=lambda x: x["win_pct"], reverse=True)[:5]
         
+        # ── Draft data ──────────────────────────────────────────────────
+        # Include rounds 1-3 picks for every member across all seasons so
+        # the AI can answer questions like "who has Mike drafted in round 1?"
+        draft_picks = (
+            db.query(DraftPick)
+            .filter(DraftPick.round <= 3)
+            .order_by(DraftPick.season_id, DraftPick.pick_number)
+            .all()
+        )
+        
+        # Group by member name -> year -> picks
+        draft_by_member: Dict[str, Dict[int, list]] = {}
+        for p in draft_picks:
+            if not p.team or not p.team.member:
+                continue
+            mname = p.team.member.name
+            year = season_id_to_year.get(p.season_id, 0)
+            if mname not in draft_by_member:
+                draft_by_member[mname] = {}
+            if year not in draft_by_member[mname]:
+                draft_by_member[mname][year] = []
+            grade_str = f" ({p.grade})" if p.grade else ""
+            pts_str = f" - {p.season_points:.0f}pts" if p.season_points else ""
+            draft_by_member[mname][year].append(
+                f"Rd{p.round} Pk{p.pick_number}: {p.player_name} ({p.player_position or '?'}){pts_str}{grade_str}"
+            )
+        
+        draft_lines = []
+        for mname in sorted(draft_by_member.keys()):
+            draft_lines.append(f"\n{mname}:")
+            for year in sorted(draft_by_member[mname].keys()):
+                picks_str = "; ".join(draft_by_member[mname][year])
+                draft_lines.append(f"  {year}: {picks_str}")
+        
+        draft_context = "\n".join(draft_lines) if draft_lines else "No draft data available."
+        sources_used.append("draft_picks")
+        
+        # ── Notable steals and busts (if grades exist) ───────────────
+        graded_picks = (
+            db.query(DraftPick)
+            .filter(DraftPick.grade.isnot(None))
+            .all()
+        )
+        
+        steals_busts_lines = []
+        if graded_picks:
+            steals = [p for p in graded_picks if p.grade in ("A+", "A") and p.season_points]
+            busts = [p for p in graded_picks if p.grade in ("D", "F") and p.season_points]
+            
+            steals.sort(key=lambda p: -(p.season_points or 0))
+            busts.sort(key=lambda p: (p.season_points or 0))
+            
+            if steals:
+                steals_busts_lines.append("Biggest Steals (late picks that crushed it):")
+                for p in steals[:10]:
+                    year = season_id_to_year.get(p.season_id, "?")
+                    mgr = p.team.member.name if p.team and p.team.member else "?"
+                    steals_busts_lines.append(
+                        f"  - {p.player_name} ({p.player_position}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
+                    )
+            
+            if busts:
+                steals_busts_lines.append("Biggest Busts (high picks that flopped):")
+                for p in busts[:10]:
+                    year = season_id_to_year.get(p.season_id, "?")
+                    mgr = p.team.member.name if p.team and p.team.member else "?"
+                    steals_busts_lines.append(
+                        f"  - {p.player_name} ({p.player_position}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
+                    )
+            sources_used.append("draft_grades")
+        
+        steals_busts_context = "\n".join(steals_busts_lines) if steals_busts_lines else ""
+        
+        # ── Transaction summary per member ───────────────────────────
+        from sqlalchemy import func as sqlfunc
+        tx_counts = (
+            db.query(
+                Team.member_id,
+                Transaction.type,
+                sqlfunc.count(Transaction.id),
+            )
+            .join(Team, Transaction.team_id == Team.id)
+            .group_by(Team.member_id, Transaction.type)
+            .all()
+        )
+        
+        tx_by_member: Dict[str, Dict[str, int]] = {}
+        for mid, tx_type, cnt in tx_counts:
+            mname = member_id_to_name.get(mid, "Unknown")
+            if mname not in tx_by_member:
+                tx_by_member[mname] = {}
+            tx_by_member[mname][tx_type] = cnt
+        
+        tx_lines = []
+        for mname in sorted(tx_by_member.keys()):
+            parts = [f"{cnt} {ttype}s" for ttype, cnt in sorted(tx_by_member[mname].items())]
+            tx_lines.append(f"- {mname}: {', '.join(parts)}")
+        
+        tx_context = "\n".join(tx_lines) if tx_lines else "No transaction data available."
+        if tx_lines:
+            sources_used.append("transactions")
+        
     finally:
         db.close()
     
@@ -1017,6 +1123,14 @@ async def ask_commish(request: AskCommishRequest):
 - Biggest blowout margin: {records_data.get('biggest_blowout_margin', 'N/A')}
 - Closest game margin: {records_data.get('closest_game_margin', 'N/A')}
 - Total matchups played: {records_data.get('total_matchups', 0)}
+
+=== DRAFT PICKS (Rounds 1-3 by Member) ===
+{draft_context}
+
+{('=== DRAFT STEALS & BUSTS ===' + chr(10) + steals_busts_context) if steals_busts_context else ''}
+
+=== TRANSACTION ACTIVITY (All-Time by Member) ===
+{tx_context}
 """
 
     try:
@@ -1045,6 +1159,9 @@ EXAMPLE_QUESTIONS = [
     "Who is the most consistent manager?",
     "What are the all-time records?",
     "Who should I be worried about in the playoffs?",
+    "Who has drafted the most RBs in round 1?",
+    "What were the biggest draft steals in league history?",
+    "Who is the most active on the waiver wire?",
 ]
 
 @router.get("/example-questions")

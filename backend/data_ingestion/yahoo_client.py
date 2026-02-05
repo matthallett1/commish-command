@@ -668,94 +668,142 @@ class YahooFantasyClient:
         
         return transactions
     
-    def get_player_stats_for_draft(self, league_id: str, draft_picks: List[DraftPick],
-                                     delay: float = 0.5) -> List[Dict[str, Any]]:
+    def get_player_stats_for_draft(self, league_id: str, player_ids: List[str],
+                                     delay: float = 0.5) -> Dict[str, Dict[str, Any]]:
         """
-        Fetch season stats for each drafted player.
+        Fetch season stats for drafted players in batches.
         
-        Returns a list of dicts with player_id, season_points, position_rank, and adp.
-        Rate-limited to avoid hitting Yahoo API limits.
+        Args:
+            league_id: Yahoo league ID (e.g. "390.l.123456")
+            player_ids: List of raw Yahoo player ID strings (e.g. ["9490", "25802"])
+            delay: Seconds to wait between API calls for rate limiting
+            
+        Returns:
+            Dict mapping player_id -> {"season_points": float|None, "adp": float|None}
         """
         league = self.get_league(league_id)
-        season = self._extract_season(league_id)
-        results = []
-        total = len(draft_picks)
+        game_id = league_id.split(".")[0]  # e.g. "390" from "390.l.123456"
         
-        print(f"  Fetching player stats for {total} draft picks...", end="", flush=True)
-        
-        for i, pick in enumerate(draft_picks):
-            if not pick.player_id:
-                results.append({
-                    "player_id": pick.player_id,
-                    "season_points": None,
-                    "position_rank": None,
-                    "adp": None,
-                })
+        # Build full player keys: "390.p.9490"
+        player_keys = []
+        key_to_raw_id = {}
+        for pid in player_ids:
+            if not pid:
                 continue
-            
-            player_stats = {
-                "player_id": pick.player_id,
-                "season_points": None,
-                "position_rank": None,
-                "adp": None,
-            }
-            
+            player_key = f"{game_id}.p.{pid}"
+            player_keys.append(player_key)
+            key_to_raw_id[player_key] = pid
+        
+        results: Dict[str, Dict[str, Any]] = {}
+        total = len(player_keys)
+        if total == 0:
+            return results
+        
+        batch_size = 25
+        stats_fetched = 0
+        adp_fetched = 0
+        errors = 0
+        
+        print(f"  Fetching season stats for {total} players in batches of {batch_size}...",
+              end="", flush=True)
+        
+        # ── Pass 1: Batch-fetch season points via player_stats() ──
+        for i in range(0, total, batch_size):
+            batch = player_keys[i:i + batch_size]
             try:
-                # Try to get player stats for the season
-                # The player_key format is typically: {game_id}.p.{player_id_num}
-                stats_data = league.player_stats([pick.player_id], "season")
-                if stats_data and isinstance(stats_data, list) and len(stats_data) > 0:
+                stats_data = league.player_stats(batch, "season")
+                if stats_data and isinstance(stats_data, list):
                     for stat_entry in stats_data:
                         if not isinstance(stat_entry, dict):
                             continue
-                        player_data = stat_entry.get("player", {})
+                        # Response can be flat or nested under "player"
+                        player_data = stat_entry.get("player", stat_entry)
                         if not isinstance(player_data, dict):
                             continue
                         
-                        # Get total points from player_points
+                        # Find the player key in this entry
+                        pkey = str(player_data.get("player_key", ""))
+                        raw_id = key_to_raw_id.get(pkey)
+                        if not raw_id:
+                            # Try extracting from player_id
+                            pid_val = player_data.get("player_id")
+                            if pid_val is not None:
+                                raw_id = str(pid_val)
+                        if not raw_id:
+                            continue
+                        
+                        # Extract season points
+                        season_pts = None
                         player_points = player_data.get("player_points", {})
                         if isinstance(player_points, dict):
                             total_pts = player_points.get("total")
                             if total_pts is not None:
                                 try:
-                                    player_stats["season_points"] = float(total_pts)
+                                    season_pts = float(total_pts)
+                                    stats_fetched += 1
                                 except (ValueError, TypeError):
                                     pass
-            except Exception as e:
-                # Silently skip — not all players will have stats
-                pass
-            
-            try:
-                # Try to get ADP data
-                draft_analysis = league.player_details([pick.player_id])
-                if draft_analysis and isinstance(draft_analysis, list):
-                    for detail in draft_analysis:
-                        if not isinstance(detail, dict):
-                            continue
-                        player_data = detail.get("player", {})
-                        if not isinstance(player_data, dict):
-                            continue
-                        adp_val = player_data.get("draft_analysis", {})
-                        if isinstance(adp_val, dict):
-                            avg_pick = adp_val.get("average_pick")
-                            if avg_pick is not None:
-                                try:
-                                    player_stats["adp"] = float(avg_pick)
-                                except (ValueError, TypeError):
-                                    pass
-            except Exception:
-                pass
-            
-            results.append(player_stats)
-            
-            # Progress indicator every 10 players
-            if (i + 1) % 10 == 0:
+                        
+                        if raw_id not in results:
+                            results[raw_id] = {"season_points": None, "adp": None}
+                        results[raw_id]["season_points"] = season_pts
                 print(".", end="", flush=True)
+            except Exception as e:
+                errors += 1
+                print("x", end="", flush=True)
             
-            # Rate limiting
             time.sleep(delay)
         
-        print(f" done ({len(results)} players)", flush=True)
+        print(f" stats:{stats_fetched}", end="", flush=True)
+        
+        # ── Pass 2: Batch-fetch ADP via player_details() ──
+        print(" ADP", end="", flush=True)
+        for i in range(0, total, batch_size):
+            batch_keys = player_keys[i:i + batch_size]
+            # player_details expects integer player IDs
+            batch_int_ids = []
+            for pk in batch_keys:
+                try:
+                    batch_int_ids.append(int(pk.split(".p.")[1]))
+                except (ValueError, IndexError):
+                    pass
+            
+            if not batch_int_ids:
+                continue
+                
+            try:
+                details_list = league.player_details(batch_int_ids)
+                if details_list and isinstance(details_list, list):
+                    for detail in details_list:
+                        if not isinstance(detail, dict):
+                            continue
+                        
+                        pid_val = detail.get("player_id")
+                        raw_id = str(pid_val) if pid_val is not None else None
+                        if not raw_id:
+                            continue
+                        
+                        # Extract ADP from draft_analysis
+                        draft_analysis = detail.get("draft_analysis", {})
+                        if isinstance(draft_analysis, dict):
+                            avg_pick = draft_analysis.get("average_pick")
+                            if avg_pick is not None:
+                                try:
+                                    adp_val = float(avg_pick)
+                                    if raw_id not in results:
+                                        results[raw_id] = {"season_points": None, "adp": None}
+                                    results[raw_id]["adp"] = adp_val
+                                    adp_fetched += 1
+                                except (ValueError, TypeError):
+                                    pass
+                print(".", end="", flush=True)
+            except Exception:
+                errors += 1
+                print("x", end="", flush=True)
+            
+            time.sleep(delay)
+        
+        print(f" adp:{adp_fetched} errors:{errors} done", flush=True)
         return results
     
     def get_teams(self, league_id: str) -> List[Dict[str, Any]]:
@@ -789,6 +837,28 @@ class YahooFantasyClient:
         
         return teams
     
+    def get_matching_league_ids(self, league_name_filter: str = "top pot") -> List[Dict[str, Any]]:
+        """
+        Get league IDs and metadata for leagues matching the name filter.
+        
+        Returns list of dicts with league_id, season, and name.
+        """
+        all_league_ids = self.get_league_ids()
+        matching = []
+        for league_id in all_league_ids:
+            try:
+                league_info = self.get_league_info(league_id)
+                league_name = league_info.get("name", "").lower()
+                if league_name_filter.lower() in league_name:
+                    matching.append({
+                        "league_id": league_id,
+                        "season": league_info.get("season"),
+                        "name": league_info.get("name"),
+                    })
+            except Exception:
+                continue
+        return sorted(matching, key=lambda x: x.get("season", 0))
+
     def get_all_historical_data(self, league_name_filter: str = "top pot") -> Dict[str, Any]:
         """
         Fetch all historical data for leagues matching the filter.

@@ -43,12 +43,18 @@ class DraftPick(Base):
         return f"<DraftPick #{self.pick_number}: {self.player_name}>"
     
     def calculate_grade(self):
-        """Calculate draft pick grade based on value over ADP."""
-        if self.value_over_adp is None or self.season_rank is None:
+        """Calculate draft pick grade based on position rank vs pick position.
+        
+        Works with or without ADP data.  When ADP is available, value_over_adp
+        is set as a bonus stat.  The grade itself is always based on:
+            diff = pick_number - season_rank   (positive = outperformed)
+        """
+        if self.season_rank is None:
             self.grade = None
             return
         
-        # Simple grading based on position rank vs pick position
+        # Grading: compare where the player was drafted (pick_number)
+        # against how they actually ranked within their position group.
         expected_rank = self.pick_number
         actual_rank = self.season_rank
         
