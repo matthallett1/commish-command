@@ -4,25 +4,53 @@ FastAPI Main Application
 Commish Command API
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
-# Create FastAPI app first - minimal
+from config import settings
+
+
+# Hide API docs in production
+_docs_url = "/api/docs" if settings.debug else None
+_redoc_url = "/api/redoc" if settings.debug else None
+
+# Create FastAPI app
 app = FastAPI(
     title="Commish Command API",
     description="Your league. Your rules. Your regime.",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
 )
 
-# CORS middleware
+
+# --- Security headers middleware ---
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if not settings.debug:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS middleware — restrict origins to explicit allow-list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -71,11 +99,10 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    from config import settings
     
     uvicorn.run(
         "api.main:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=True
+        reload=settings.debug,
     )

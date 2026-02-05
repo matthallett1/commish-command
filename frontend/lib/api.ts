@@ -2,8 +2,9 @@
  * API client for the Commish Command backend
  */
 
-// Remove trailing slash from API URL if present
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://commish-command-production.up.railway.app').replace(/\/$/, '');
+// Remove trailing slash from API URL if present.
+// NEXT_PUBLIC_API_URL must be set in production — no hardcoded fallback.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, {

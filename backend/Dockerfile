@@ -15,8 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create data directory
+# Create data directory and set ownership
 RUN mkdir -p /app/data
+
+# Run as non-root user for security
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Railway sets PORT dynamically
 ENV PORT=8000

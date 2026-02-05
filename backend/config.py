@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     # API
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
+    debug: bool = Field(default=False, alias="DEBUG")
+    
+    # CORS - comma-separated list of allowed origins
+    allowed_origins: str = Field(
+        default="http://localhost:3000",
+        alias="ALLOWED_ORIGINS"
+    )
     
     # Yahoo OAuth token file location
     yahoo_token_file: Path = Field(default=BACKEND_DIR / "oauth2.json")
@@ -53,6 +60,11 @@ class Settings(BaseSettings):
     def anthropic_configured(self) -> bool:
         """Check if Anthropic API key is configured."""
         return bool(self.anthropic_api_key)
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse comma-separated ALLOWED_ORIGINS into a list."""
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
 
 # Global settings instance
