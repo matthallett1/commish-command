@@ -88,7 +88,7 @@ export default function Navigation() {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
             >
               <span className="sr-only">Open main menu</span>
               {mobileMenuOpen ? (

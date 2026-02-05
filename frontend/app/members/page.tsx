@@ -109,9 +109,9 @@ export default function MembersPage() {
                   <td className="table-cell text-center">
                     {member.total_championships > 0 ? (
                       <span className="inline-flex items-center gap-1">
-                        <span className="text-yellow-500">{'🏆'.repeat(Math.min(member.total_championships, 3))}</span>
+                        <span className="text-yellow-500 dark:text-yellow-400">{'🏆'.repeat(Math.min(member.total_championships, 3))}</span>
                         {member.total_championships > 3 && (
-                          <span className="text-sm text-gray-500">+{member.total_championships - 3}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">+{member.total_championships - 3}</span>
                         )}
                       </span>
                     ) : (
@@ -156,7 +156,7 @@ export default function MembersPage() {
                 <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
                   {member.name}
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {member.total_seasons} seasons | {member.total_wins}-{member.total_losses}
                 </p>
               </div>
@@ -164,7 +164,7 @@ export default function MembersPage() {
                 <div className="text-2xl">
                   {'🏆'.repeat(Math.min(member.total_championships, 3))}
                 </div>
-                <div className="text-sm font-semibold text-primary-600">
+                <div className="text-sm font-semibold text-primary-600 dark:text-primary-400">
                   {member.win_percentage.toFixed(1)}% wins
                 </div>
               </div>

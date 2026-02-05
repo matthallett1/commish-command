@@ -136,7 +136,7 @@ export default function MemberProfilePage() {
   return (
     <div className="space-y-8">
       {/* Back Link */}
-      <Link href="/members" className="text-primary-600 hover:underline flex items-center gap-1">
+      <Link href="/members" className="text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1">
         ← Back to Members
       </Link>
 
@@ -147,7 +147,7 @@ export default function MemberProfilePage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
               {member.name}
             </h1>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
               League member since {member.seasons?.[member.seasons.length - 1]?.year || 'N/A'}
             </p>
             {/* Achievement Badges */}
@@ -172,7 +172,7 @@ export default function MemberProfilePage() {
                 <div className="text-4xl">
                   {'🏆'.repeat(Math.min(member.total_championships, 5))}
                 </div>
-                <p className="text-sm text-gray-500">{member.total_championships} Championship{member.total_championships > 1 ? 's' : ''}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{member.total_championships} Championship{member.total_championships > 1 ? 's' : ''}</p>
               </div>
             )}
           </div>
@@ -219,7 +219,7 @@ export default function MemberProfilePage() {
                   🔥 Career High Score
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-green-600">{notableEvents.highest_score.score}</p>
+                  <p className="text-4xl font-bold text-green-600 dark:text-green-400">{notableEvents.highest_score.score}</p>
                   <p className="mt-2 text-green-700 dark:text-green-300">
                     vs {notableEvents.highest_score.opponent} ({notableEvents.highest_score.opponent_score})
                   </p>
@@ -238,7 +238,7 @@ export default function MemberProfilePage() {
                   😤 Biggest Blowout Victory
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-purple-600">+{notableEvents.biggest_win.margin}</p>
+                  <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">+{notableEvents.biggest_win.margin}</p>
                   <p className="mt-2 text-purple-700 dark:text-purple-300">
                     {notableEvents.biggest_win.score} vs {notableEvents.biggest_win.opponent} ({notableEvents.biggest_win.opponent_score})
                   </p>
@@ -256,7 +256,7 @@ export default function MemberProfilePage() {
                   😰 Closest Victory
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-blue-600">+{notableEvents.closest_win.margin}</p>
+                  <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">+{notableEvents.closest_win.margin}</p>
                   <p className="mt-2 text-blue-700 dark:text-blue-300">
                     {notableEvents.closest_win.score} vs {notableEvents.closest_win.opponent} ({notableEvents.closest_win.opponent_score})
                   </p>
@@ -274,7 +274,7 @@ export default function MemberProfilePage() {
                   💀 Worst Defeat
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-red-600">-{notableEvents.worst_loss.margin}</p>
+                  <p className="text-4xl font-bold text-red-600 dark:text-red-400">-{notableEvents.worst_loss.margin}</p>
                   <p className="mt-2 text-red-700 dark:text-red-300">
                     {notableEvents.worst_loss.score} vs {notableEvents.worst_loss.opponent} ({notableEvents.worst_loss.opponent_score})
                   </p>
@@ -393,11 +393,11 @@ export default function MemberProfilePage() {
                   </span>
                 </div>
                 <div className="mt-2 text-2xl font-bold text-center">
-                  <span className="text-green-600">{rivalry.wins}</span>
+                  <span className="text-green-600 dark:text-green-400">{rivalry.wins}</span>
                   <span className="text-gray-400 mx-2">-</span>
-                  <span className="text-red-600">{rivalry.losses}</span>
+                  <span className="text-red-600 dark:text-red-400">{rivalry.losses}</span>
                 </div>
-                <p className="text-center text-sm text-gray-500 mt-1">
+                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {rivalry.total_games} total games
                 </p>
               </div>
@@ -422,24 +422,24 @@ export default function MemberProfilePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{draftTendencies.total_picks}</p>
-              <p className="text-xs text-gray-500">Total Picks</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total Picks</p>
             </div>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{draftTendencies.seasons_drafted}</p>
-              <p className="text-xs text-gray-500">Drafts</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Drafts</p>
             </div>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-pink-600 dark:text-pink-400">{draftTendencies.favorite_position || '-'}</p>
-              <p className="text-xs text-gray-500">Favorite Position</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Favorite Position</p>
             </div>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
               <p className={`text-2xl font-bold ${
-                draftTendencies.avg_grade === 'A+' || draftTendencies.avg_grade === 'A' ? 'text-green-600' :
-                draftTendencies.avg_grade === 'B' ? 'text-blue-600' :
+                draftTendencies.avg_grade === 'A+' || draftTendencies.avg_grade === 'A' ? 'text-green-600 dark:text-green-400' :
+                draftTendencies.avg_grade === 'B' ? 'text-blue-600 dark:text-blue-400' :
                 draftTendencies.avg_grade === 'C' ? 'text-yellow-600' :
-                'text-red-600'
+                'text-red-600 dark:text-red-400'
               }`}>{draftTendencies.avg_grade || '-'}</p>
-              <p className="text-xs text-gray-500">Avg Grade</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Avg Grade</p>
             </div>
           </div>
 
@@ -451,7 +451,7 @@ export default function MemberProfilePage() {
                 {Object.entries(draftTendencies.position_breakdown).map(([pos, data]: [string, any]) => (
                   <div key={pos} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg px-3 py-2 text-sm">
                     <span className="font-bold text-gray-900 dark:text-white">{pos}</span>
-                    <span className="text-gray-500 ml-1">
+                    <span className="text-gray-500 dark:text-gray-400 ml-1">
                       {data.count} ({data.percentage}%)
                     </span>
                     {data.avg_points > 0 && (
@@ -475,11 +475,11 @@ export default function MemberProfilePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 font-mono w-10">{pick.season}</span>
                       <span className="font-medium text-gray-900 dark:text-white">{pick.player_name}</span>
-                      <span className="text-xs text-gray-500">{pick.player_position}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{pick.player_position}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {pick.season_points != null && (
-                        <span className="text-gray-500 text-xs">{pick.season_points?.toFixed(1)} pts</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{pick.season_points?.toFixed(1)} pts</span>
                       )}
                       {pick.grade && (
                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
@@ -507,17 +507,17 @@ export default function MemberProfilePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{txActivity.total_transactions}</p>
-              <p className="text-xs text-gray-500">Total Transactions</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total Transactions</p>
             </div>
             {txActivity.type_breakdown && Object.entries(txActivity.type_breakdown).map(([type, count]: [string, any]) => (
               <div key={type} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
                 <p className={`text-2xl font-bold ${
-                  type === 'add' ? 'text-green-600' :
-                  type === 'drop' ? 'text-red-600' :
-                  type === 'trade' ? 'text-purple-600' :
-                  'text-blue-600'
+                  type === 'add' ? 'text-green-600 dark:text-green-400' :
+                  type === 'drop' ? 'text-red-600 dark:text-red-400' :
+                  type === 'trade' ? 'text-purple-600 dark:text-purple-400' :
+                  'text-blue-600 dark:text-blue-400'
                 }`}>{count}</p>
-                <p className="text-xs text-gray-500 capitalize">{type}s</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{type}s</p>
               </div>
             ))}
           </div>
@@ -532,7 +532,7 @@ export default function MemberProfilePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 font-mono w-10">{pickup.season}</span>
                       <span className="font-medium text-gray-900 dark:text-white">{pickup.player_name}</span>
-                      <span className="text-xs text-gray-500">{pickup.player_position}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{pickup.player_position}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-green-600 dark:text-green-400">
@@ -572,22 +572,22 @@ export default function MemberProfilePage() {
                       <MemberLink memberId={record.member_id} name={record.member_name} />
                     </td>
                     <td className="table-cell text-center font-mono">
-                      <span className="text-green-600">{record.wins}</span>
+                      <span className="text-green-600 dark:text-green-400">{record.wins}</span>
                       -
-                      <span className="text-red-600">{record.losses}</span>
-                      {record.ties > 0 && <span className="text-gray-500">-{record.ties}</span>}
+                      <span className="text-red-600 dark:text-red-400">{record.losses}</span>
+                      {record.ties > 0 && <span className="text-gray-500 dark:text-gray-400">-{record.ties}</span>}
                     </td>
                     <td className="table-cell text-center">
                       <span className={`font-semibold ${
-                        record.win_percentage >= 55 ? 'text-green-600' :
+                        record.win_percentage >= 55 ? 'text-green-600 dark:text-green-400' :
                         record.win_percentage >= 45 ? 'text-gray-600' :
-                        'text-red-600'
+                        'text-red-600 dark:text-red-400'
                       }`}>
                         {record.win_percentage}%
                       </span>
                     </td>
-                    <td className="table-cell text-right text-green-600">{record.points_for.toLocaleString()}</td>
-                    <td className="table-cell text-right text-red-600">{record.points_against.toLocaleString()}</td>
+                    <td className="table-cell text-right text-green-600 dark:text-green-400">{record.points_for.toLocaleString()}</td>
+                    <td className="table-cell text-right text-red-600 dark:text-red-400">{record.points_against.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

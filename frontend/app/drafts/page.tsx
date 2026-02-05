@@ -273,7 +273,7 @@ export default function DraftsPage() {
                       <div className="grid grid-cols-3 gap-2 text-center text-sm">
                         <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
                           <p className="font-bold text-gray-900 dark:text-white">{card.total_picks}</p>
-                          <p className="text-xs text-gray-500">Picks</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Picks</p>
                         </div>
                         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
                           <p className="font-bold text-green-700 dark:text-green-400">{card.steals_count}</p>
@@ -329,7 +329,7 @@ export default function DraftsPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {pick.season_points != null && (
-                                    <span className="text-gray-500">{pick.season_points.toFixed(1)} pts</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{pick.season_points.toFixed(1)} pts</span>
                                   )}
                                   {pick.grade && (
                                     <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
@@ -381,7 +381,7 @@ export default function DraftsPage() {
                             Number(round) === 1 ? 'bg-yellow-50/30 dark:bg-yellow-900/5' : ''
                           }`}
                         >
-                          <td className="px-3 py-2 font-mono font-bold text-gray-500">
+                          <td className="px-3 py-2 font-mono font-bold text-gray-500 dark:text-gray-400">
                             {pick.pick_number}
                           </td>
                           <td className="px-3 py-2 text-gray-400">Rd {pick.round}</td>
@@ -403,7 +403,7 @@ export default function DraftsPage() {
                               <MemberLink memberId={pick.member_id} name={pick.manager} />
                             ) : pick.manager}
                           </td>
-                          <td className="px-3 py-2 text-center text-gray-500">
+                          <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">
                             {pick.adp ? pick.adp.toFixed(1) : '-'}
                           </td>
                           <td className="px-3 py-2 text-center font-medium">
@@ -448,7 +448,7 @@ export default function DraftsPage() {
                         className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-lg px-3 py-2"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-green-600 w-6">
+                          <span className="text-sm font-bold text-green-600 dark:text-green-400 w-6">
                             #{pick.pick_number}
                           </span>
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -460,7 +460,7 @@ export default function DraftsPage() {
                             <p className="font-medium text-gray-900 dark:text-white text-sm">
                               {pick.player_name}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {pick.member_id ? (
                                 <MemberLink memberId={pick.member_id} name={pick.manager} />
                               ) : pick.manager}
@@ -505,7 +505,7 @@ export default function DraftsPage() {
                         className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 rounded-lg px-3 py-2"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-red-600 w-6">
+                          <span className="text-sm font-bold text-red-600 dark:text-red-400 w-6">
                             #{pick.pick_number}
                           </span>
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -517,7 +517,7 @@ export default function DraftsPage() {
                             <p className="font-medium text-gray-900 dark:text-white text-sm">
                               {pick.player_name}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {pick.member_id ? (
                                 <MemberLink memberId={pick.member_id} name={pick.manager} />
                               ) : pick.manager}
@@ -636,7 +636,7 @@ export default function DraftsPage() {
                             <td className="px-3 py-2 text-center font-medium">
                               {tx.points_scored > 0 ? tx.points_scored.toFixed(1) : '-'}
                             </td>
-                            <td className="px-3 py-2 text-gray-500 text-xs">
+                            <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">
                               {tx.timestamp
                                 ? new Date(tx.timestamp).toLocaleDateString()
                                 : '-'}

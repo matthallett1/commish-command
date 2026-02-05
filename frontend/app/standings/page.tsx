@@ -247,7 +247,7 @@ function StandingsContent() {
                   🔥 Season High Score
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-green-600">{seasonRecords.highest_score.score}</p>
+                  <p className="text-4xl font-bold text-green-600 dark:text-green-400">{seasonRecords.highest_score.score}</p>
                   <p className="mt-2 text-green-700 dark:text-green-300">
                     {seasonRecords.highest_score.member_id ? (
                       <MemberLink 
@@ -273,7 +273,7 @@ function StandingsContent() {
                   💀 Season Low Score
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-red-600">{seasonRecords.lowest_score.score}</p>
+                  <p className="text-4xl font-bold text-red-600 dark:text-red-400">{seasonRecords.lowest_score.score}</p>
                   <p className="mt-2 text-red-700 dark:text-red-300">
                     {seasonRecords.lowest_score.member_id ? (
                       <MemberLink 
@@ -298,7 +298,7 @@ function StandingsContent() {
                   😤 Biggest Blowout
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-purple-600">+{seasonRecords.biggest_blowout.margin}</p>
+                  <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">+{seasonRecords.biggest_blowout.margin}</p>
                   <p className="mt-2 text-purple-700 dark:text-purple-300">
                     {seasonRecords.biggest_blowout.winner_member_id ? (
                       <MemberLink 
@@ -312,7 +312,7 @@ function StandingsContent() {
                   <p className="text-sm text-purple-600 dark:text-purple-400">
                     defeated {seasonRecords.biggest_blowout.loser} ({seasonRecords.biggest_blowout.loser_score})
                   </p>
-                  <p className="text-xs text-purple-500 mt-1">
+                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">
                     Week {seasonRecords.biggest_blowout.week}
                     {seasonRecords.biggest_blowout.is_playoff && ' (Playoffs)'}
                   </p>
@@ -327,7 +327,7 @@ function StandingsContent() {
                   😰 Closest Game
                 </h3>
                 <div className="mt-3">
-                  <p className="text-4xl font-bold text-blue-600">{seasonRecords.closest_game.margin}</p>
+                  <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{seasonRecords.closest_game.margin}</p>
                   <p className="mt-2 text-blue-700 dark:text-blue-300">
                     {seasonRecords.closest_game.winner_member_id ? (
                       <MemberLink 
@@ -341,7 +341,7 @@ function StandingsContent() {
                   <p className="text-sm text-blue-600 dark:text-blue-400">
                     vs {seasonRecords.closest_game.loser} ({seasonRecords.closest_game.loser_score})
                   </p>
-                  <p className="text-xs text-blue-500 mt-1">
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
                     Week {seasonRecords.closest_game.week}
                     {seasonRecords.closest_game.is_playoff && ' (Playoffs)'}
                   </p>

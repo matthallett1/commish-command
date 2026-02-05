@@ -19,7 +19,7 @@ export default function StatCard({ title, value, subtitle, icon, trend, trendVal
           )}
           {trendValue && (
             <div className={`flex items-center mt-2 text-sm ${
-              trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-gray-500'
+              trend === 'up' ? 'text-green-600 dark:text-green-400' : trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
             }`}>
               {trend === 'up' && (
                 <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -134,7 +134,7 @@ export default function RecordsPage() {
                   🔥 Highest Single-Week Score
                 </h3>
                 <div className="mt-4">
-                  <p className="text-4xl font-bold text-green-600">{records.highest_score.score.toFixed(2)}</p>
+                  <p className="text-4xl font-bold text-green-600 dark:text-green-400">{records.highest_score.score.toFixed(2)}</p>
                   <p className="mt-2 text-green-700 dark:text-green-300">
                     {records.highest_score.manager} ({records.highest_score.team})
                   </p>
@@ -152,7 +152,7 @@ export default function RecordsPage() {
                   💀 Lowest Single-Week Score
                 </h3>
                 <div className="mt-4">
-                  <p className="text-4xl font-bold text-red-600">{records.lowest_score.score.toFixed(2)}</p>
+                  <p className="text-4xl font-bold text-red-600 dark:text-red-400">{records.lowest_score.score.toFixed(2)}</p>
                   <p className="mt-2 text-red-700 dark:text-red-300">
                     {records.lowest_score.manager} ({records.lowest_score.team})
                   </p>
@@ -170,14 +170,14 @@ export default function RecordsPage() {
                   😤 Biggest Blowout
                 </h3>
                 <div className="mt-4">
-                  <p className="text-4xl font-bold text-purple-600">+{records.biggest_blowout.margin.toFixed(2)}</p>
+                  <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">+{records.biggest_blowout.margin.toFixed(2)}</p>
                   <p className="mt-2 text-purple-700 dark:text-purple-300">
                     {records.biggest_blowout.winner} ({records.biggest_blowout.winner_score.toFixed(2)})
                   </p>
                   <p className="text-sm text-purple-600 dark:text-purple-400">
                     defeated {records.biggest_blowout.loser} ({records.biggest_blowout.loser_score.toFixed(2)})
                   </p>
-                  <p className="text-xs text-purple-500 mt-1">
+                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">
                     {records.biggest_blowout.season} Week {records.biggest_blowout.week}
                   </p>
                 </div>
@@ -191,14 +191,14 @@ export default function RecordsPage() {
                   😰 Closest Game
                 </h3>
                 <div className="mt-4">
-                  <p className="text-4xl font-bold text-blue-600">{records.closest_game.margin.toFixed(2)}</p>
+                  <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{records.closest_game.margin.toFixed(2)}</p>
                   <p className="mt-2 text-blue-700 dark:text-blue-300">
                     {records.closest_game.winner} ({records.closest_game.winner_score.toFixed(2)})
                   </p>
                   <p className="text-sm text-blue-600 dark:text-blue-400">
                     vs {records.closest_game.loser} ({records.closest_game.loser_score.toFixed(2)})
                   </p>
-                  <p className="text-xs text-blue-500 mt-1">
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
                     {records.closest_game.season} Week {records.closest_game.week}
                   </p>
                 </div>
@@ -218,7 +218,7 @@ export default function RecordsPage() {
         {activeTab === 'h2h' && h2hMatrix?.matrix && (
           <div className="card overflow-hidden">
             <h2 className="card-header">Head-to-Head Matrix</h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Records shown as Wins-Losses from the row player's perspective
             </p>
             <div className="overflow-x-auto">
@@ -283,7 +283,7 @@ export default function RecordsPage() {
         {activeTab === 'luck' && luckAnalysis?.analysis && (
           <div className="card">
             <h2 className="card-header">Luck Analysis</h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Compares actual wins to expected wins based on weekly scores
             </p>
             <div className="overflow-x-auto">
@@ -310,12 +310,12 @@ export default function RecordsPage() {
                       <td className="table-cell text-center">{entry.actual_wins}</td>
                       <td className="table-cell text-center">{entry.expected_wins}</td>
                       <td className={`table-cell text-center font-bold ${
-                        entry.luck_factor > 0 ? 'text-green-600' : 'text-red-600'
+                        entry.luck_factor > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
                         {entry.luck_factor > 0 ? '+' : ''}{entry.luck_factor}
                       </td>
-                      <td className="table-cell text-center text-green-600">{entry.lucky_wins}</td>
-                      <td className="table-cell text-center text-red-600">{entry.unlucky_losses}</td>
+                      <td className="table-cell text-center text-green-600 dark:text-green-400">{entry.lucky_wins}</td>
+                      <td className="table-cell text-center text-red-600 dark:text-red-400">{entry.unlucky_losses}</td>
                       <td className="table-cell text-center">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           entry.luck_rating.includes('Very Lucky') ? 'bg-green-100 text-green-800' :
@@ -339,7 +339,7 @@ export default function RecordsPage() {
         {activeTab === 'power' && powerRankings && (
           <div className="card">
             <h2 className="card-header">All-Time Power Rankings</h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Weighted score based on win %, championships, playoff %, points, and longevity
             </p>
             <div className="overflow-x-auto">
@@ -375,7 +375,7 @@ export default function RecordsPage() {
                         ) : entry.member}
                       </td>
                       <td className="table-cell text-center">
-                        <span className="text-lg font-bold text-primary-600">{entry.power_score}</span>
+                        <span className="text-lg font-bold text-primary-600 dark:text-primary-400">{entry.power_score}</span>
                       </td>
                       <td className="table-cell text-center">{entry.seasons}</td>
                       <td className="table-cell text-center">

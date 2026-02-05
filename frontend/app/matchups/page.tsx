@@ -101,26 +101,26 @@ export default function MatchupsPage() {
                       <span className="font-medium">{game.team1_manager}</span>
                       <span className="font-bold text-lg">{game.team1_score.toFixed(2)}</span>
                     </div>
-                    <div className="text-xs text-gray-500">{game.team1_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{game.team1_name}</div>
                   </div>
                   <div className="px-4 text-center">
-                    <span className="text-2xl font-bold text-primary-600">
+                    <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
                       {game.point_differential.toFixed(2)}
                     </span>
-                    <div className="text-xs text-gray-500">margin</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">margin</div>
                   </div>
                   <div className="flex-1 text-right">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-lg">{game.team2_score.toFixed(2)}</span>
                       <span className="font-medium">{game.team2_manager}</span>
                     </div>
-                    <div className="text-xs text-gray-500">{game.team2_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{game.team2_name}</div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>{game.season} Week {game.week}</span>
                   {game.is_playoff && (
-                    <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full">
+                    <span className="px-2 py-0.5 bg-purple-200 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 rounded-full">
                       Playoffs
                     </span>
                   )}
@@ -144,32 +144,32 @@ export default function MatchupsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-green-600 font-bold text-lg">W</span>
+                      <span className="text-green-600 dark:text-green-400 font-bold text-lg">W</span>
                       <span className="font-medium">{game.winner_manager}</span>
                     </div>
-                    <div className="text-xs text-gray-500">{game.winner_name}</div>
-                    <div className="text-xl font-bold text-green-600 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{game.winner_name}</div>
+                    <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
                       {game.winner_score.toFixed(2)}
                     </div>
                   </div>
                   <div className="px-6 text-center">
-                    <span className="text-3xl font-bold text-red-600">
+                    <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                       +{game.margin.toFixed(0)}
                     </span>
-                    <div className="text-xs text-gray-500">margin</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">margin</div>
                   </div>
                   <div className="flex-1 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <span className="font-medium">{game.loser_manager}</span>
-                      <span className="text-red-600 font-bold text-lg">L</span>
+                      <span className="text-red-600 dark:text-red-400 font-bold text-lg">L</span>
                     </div>
-                    <div className="text-xs text-gray-500">{game.loser_name}</div>
-                    <div className="text-xl font-bold text-red-600 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{game.loser_name}</div>
+                    <div className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">
                       {game.loser_score.toFixed(2)}
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 text-center">
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {game.season} Week {game.week}
                   {game.is_playoff && ' (Playoffs)'}
                 </div>
@@ -206,22 +206,22 @@ export default function MatchupsPage() {
                       {index === 2 && ' 🥉'}
                     </td>
                     <td className="table-cell font-medium">{score.manager}</td>
-                    <td className="table-cell text-sm text-gray-500">{score.team_name}</td>
+                    <td className="table-cell text-sm text-gray-500 dark:text-gray-400">{score.team_name}</td>
                     <td className="table-cell text-center">
-                      <span className="text-lg font-bold text-green-600">
+                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
                         {score.score.toFixed(2)}
                       </span>
                     </td>
                     <td className="table-cell text-center">{score.season}</td>
                     <td className="table-cell text-center">
                       {score.week}
-                      {score.is_playoff && <span className="ml-1 text-purple-600">🏆</span>}
+                      {score.is_playoff && <span className="ml-1 text-purple-600 dark:text-purple-400">🏆</span>}
                     </td>
                     <td className="table-cell text-center">
                       {score.won ? (
-                        <span className="text-green-600 font-medium">W</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium">W</span>
                       ) : (
-                        <span className="text-red-600 font-medium">L 😢</span>
+                        <span className="text-red-600 dark:text-red-400 font-medium">L 😢</span>
                       )}
                     </td>
                   </tr>
@@ -257,9 +257,9 @@ export default function MatchupsPage() {
                       {index === 0 && ' 💩'}
                     </td>
                     <td className="table-cell font-medium">{score.manager}</td>
-                    <td className="table-cell text-sm text-gray-500">{score.team_name}</td>
+                    <td className="table-cell text-sm text-gray-500 dark:text-gray-400">{score.team_name}</td>
                     <td className="table-cell text-center">
-                      <span className="text-lg font-bold text-red-600">
+                      <span className="text-lg font-bold text-red-600 dark:text-red-400">
                         {score.score.toFixed(2)}
                       </span>
                     </td>
@@ -267,9 +267,9 @@ export default function MatchupsPage() {
                     <td className="table-cell text-center">{score.week}</td>
                     <td className="table-cell text-center">
                       {score.won ? (
-                        <span className="text-green-600 font-medium">W 🍀</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium">W 🍀</span>
                       ) : (
-                        <span className="text-red-600 font-medium">L</span>
+                        <span className="text-red-600 dark:text-red-400 font-medium">L</span>
                       )}
                     </td>
                   </tr>

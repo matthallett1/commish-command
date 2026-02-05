@@ -45,7 +45,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh]">
         <LoadingSpinner size="lg" />
-        <p className="mt-4 text-gray-500">Loading dashboard...</p>
+        <p className="mt-4 text-gray-500 dark:text-gray-400">Loading dashboard...</p>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export default function HomePage() {
           value={mostChampionships?.championships || 0}
           subtitle={mostChampionships?.member || 'N/A'}
           icon={
-            <svg className="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-6 h-6 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clipRule="evenodd" />
             </svg>
           }
@@ -173,21 +173,21 @@ export default function HomePage() {
           <div className="text-center">
             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📊</div>
             <h3 className="font-semibold text-gray-900 dark:text-white">Standings</h3>
-            <p className="text-sm text-gray-500">Season by season</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Season by season</p>
           </div>
         </Link>
         <Link href="/members" className="card hover:shadow-xl transition-shadow group">
           <div className="text-center">
             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">👥</div>
             <h3 className="font-semibold text-gray-900 dark:text-white">Members</h3>
-            <p className="text-sm text-gray-500">Player profiles</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Player profiles</p>
           </div>
         </Link>
         <Link href="/records" className="card hover:shadow-xl transition-shadow group">
           <div className="text-center">
             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🏆</div>
             <h3 className="font-semibold text-gray-900 dark:text-white">Records</h3>
-            <p className="text-sm text-gray-500">All-time bests</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">All-time bests</p>
           </div>
         </Link>
       </div>
