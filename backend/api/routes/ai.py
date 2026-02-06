@@ -1019,10 +1019,11 @@ async def ask_commish(request: AskCommishRequest):
                 draft_by_member[mname] = {}
             if year not in draft_by_member[mname]:
                 draft_by_member[mname][year] = []
-            grade_str = f" ({p.grade})" if p.grade else ""
-            pts_str = f" - {p.season_points:.0f}pts" if p.season_points else ""
+            grade_str = f" [{p.grade}]" if p.grade else ""
+            pts_str = f" {p.season_points:.0f}pts" if p.season_points else ""
+            team_str = f", {p.player_team}" if p.player_team else ""
             draft_by_member[mname][year].append(
-                f"Rd{p.round} Pk{p.pick_number}: {p.player_name} ({p.player_position or '?'}){pts_str}{grade_str}"
+                f"Rd{p.round} Pk{p.pick_number}: {p.player_name} ({p.player_position or '?'}{team_str}){pts_str}{grade_str}"
             )
         
         draft_lines = []
@@ -1055,8 +1056,9 @@ async def ask_commish(request: AskCommishRequest):
                 for p in steals[:10]:
                     year = season_id_to_year.get(p.season_id, "?")
                     mgr = p.team.member.name if p.team and p.team.member else "?"
+                    nfl = f", {p.player_team}" if p.player_team else ""
                     steals_busts_lines.append(
-                        f"  - {p.player_name} ({p.player_position}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
+                        f"  - {p.player_name} ({p.player_position}{nfl}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
                     )
             
             if busts:
@@ -1064,8 +1066,9 @@ async def ask_commish(request: AskCommishRequest):
                 for p in busts[:10]:
                     year = season_id_to_year.get(p.season_id, "?")
                     mgr = p.team.member.name if p.team and p.team.member else "?"
+                    nfl = f", {p.player_team}" if p.player_team else ""
                     steals_busts_lines.append(
-                        f"  - {p.player_name} ({p.player_position}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
+                        f"  - {p.player_name} ({p.player_position}{nfl}), Rd{p.round} Pk{p.pick_number} by {mgr} ({year}) - {p.season_points:.0f}pts [{p.grade}]"
                     )
             sources_used.append("draft_grades")
         

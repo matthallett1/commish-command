@@ -107,6 +107,29 @@ def sync_draft_stats(league_filter: str = "top pot", year: int = None, delay: fl
             player_ids = [p.player_id for p in picks if p.player_id]
             unique_ids = list(set(player_ids))
             
+            # ── Step 0: Backfill NFL team data for picks missing it ──
+            missing_team = [p for p in picks if p.player_id and not p.player_team]
+            if missing_team:
+                missing_ids = list(set(p.player_id for p in missing_team))
+                print(f"  Step 0: Backfilling NFL teams for {len(missing_ids)} players...")
+                teams_updated = 0
+                try:
+                    team_map = client.get_player_nfl_teams(
+                        league_id, missing_ids, delay=delay
+                    )
+                    for pick in missing_team:
+                        nfl_team = team_map.get(pick.player_id)
+                        if nfl_team:
+                            pick.player_team = nfl_team
+                            teams_updated += 1
+                    db.commit()
+                    print(f"  -> NFL teams: {teams_updated} picks updated")
+                except Exception as e:
+                    print(f"  ERROR backfilling NFL teams: {e}")
+                    db.rollback()
+            else:
+                print(f"  Step 0: NFL teams already populated")
+            
             # ── Step 1: Fetch stats from Yahoo API ──
             print(f"  Step 1: Fetching Yahoo API stats...")
             api_updated = 0

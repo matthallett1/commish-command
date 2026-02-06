@@ -333,6 +333,7 @@ class DataLoader:
                     player_id=pick_data.get("player_id"),
                     player_name=pick_data.get("player_name", "Unknown"),
                     player_position=pick_data.get("player_position"),
+                    player_team=pick_data.get("player_team"),
                 )
                 self.db.add(draft_pick)
                 counts["draft_picks"] += 1

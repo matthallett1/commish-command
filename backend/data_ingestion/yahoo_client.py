@@ -67,6 +67,7 @@ class DraftPick:
     player_id: str
     player_name: str
     player_position: str
+    player_team: str = ""  # NFL team abbreviation (e.g. "SEA", "SF")
 
 
 @dataclass
@@ -503,6 +504,12 @@ class YahooFantasyClient:
                 or ""
             )
             
+            # NFL team abbreviation (e.g. "SEA", "SF", "GB")
+            player_nfl_team = str(
+                player_info.get("editorial_team_abbr")
+                or player_info.get("editorial_team_key", "")
+            ).upper()
+            
             picks.append(DraftPick(
                 season=season,
                 round=round_num,
@@ -513,6 +520,7 @@ class YahooFantasyClient:
                 player_id=str(player_id) if player_id is not None else "",
                 player_name=player_name,
                 player_position=player_position,
+                player_team=player_nfl_team,
             ))
         
         if picks:
@@ -806,6 +814,70 @@ class YahooFantasyClient:
         print(f" adp:{adp_fetched} errors:{errors} done", flush=True)
         return results
     
+    def get_player_nfl_teams(self, league_id: str, player_ids: List[str],
+                              delay: float = 0.3) -> Dict[str, str]:
+        """
+        Fetch NFL team abbreviations for a list of player IDs.
+        
+        Uses the same player_details() approach that works in get_draft_results().
+        
+        Args:
+            league_id: Yahoo league ID
+            player_ids: List of raw Yahoo player ID strings (e.g. ["9490", "25802"])
+            delay: Seconds between batches
+            
+        Returns:
+            Dict mapping player_id -> NFL team abbreviation (e.g. "SEA", "SF")
+        """
+        league = self.get_league(league_id)
+        
+        # Convert string IDs to ints for player_details()
+        int_ids = []
+        for pid in player_ids:
+            if not pid:
+                continue
+            try:
+                int_ids.append(int(pid))
+            except (ValueError, TypeError):
+                pass
+        
+        results: Dict[str, str] = {}
+        batch_size = 25
+        total = len(int_ids)
+        fetched = 0
+        
+        if total == 0:
+            return results
+        
+        print(f"  Fetching NFL teams for {total} players...", end="", flush=True)
+        
+        for i in range(0, total, batch_size):
+            batch = int_ids[i:i + batch_size]
+            try:
+                details_list = league.player_details(batch)
+                for detail in details_list:
+                    if not isinstance(detail, dict):
+                        continue
+                    pid = detail.get("player_id")
+                    if pid is None:
+                        continue
+                    
+                    nfl_team = str(
+                        detail.get("editorial_team_abbr")
+                        or detail.get("editorial_team_key", "")
+                    ).upper()
+                    
+                    if nfl_team:
+                        results[str(pid)] = nfl_team
+                        fetched += 1
+                print(".", end="", flush=True)
+            except Exception:
+                print("x", end="", flush=True)
+            time.sleep(delay)
+        
+        print(f" got {fetched} of {total}", flush=True)
+        return results
+
     def get_teams(self, league_id: str) -> List[Dict[str, Any]]:
         """Get all teams in a league."""
         league = self.get_league(league_id)
