@@ -14,6 +14,14 @@ const GRADE_COLORS: Record<string, string> = {
   'F': 'text-red-600 dark:text-red-400',
 };
 
+// ESPN uses slightly different abbreviations for some teams
+const ESPN_ABBR: Record<string, string> = { WAS: 'wsh' };
+
+function teamLogoUrl(abbr: string): string {
+  const espn = ESPN_ABBR[abbr] || abbr.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${espn}.png`;
+}
+
 interface Division {
   name: string;
   teams: { abbr: string; name: string; city: string }[];
@@ -159,7 +167,7 @@ export default function TeamsPage() {
         {CONFERENCES.map((conf) => (
           <div key={conf.name}>
             {/* Conference Header */}
-            <div className={`flex items-center gap-3 mb-5`}>
+            <div className="flex items-center gap-3 mb-5">
               <h2 className={`text-2xl font-extrabold tracking-tight ${conf.color} ${conf.darkColor}`}>
                 {conf.name}
               </h2>
@@ -186,36 +194,36 @@ export default function TeamsPage() {
                           href={`/teams/${team.abbr}`}
                           className={`group relative overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700 bg-gradient-to-br ${conf.accentBg} p-3 hover:shadow-lg hover:border-gray-300 dark:hover:border-slate-500 transition-all`}
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="min-w-0">
-                              <p className="font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
-                                {team.city}
+                          <div className="flex items-center gap-3">
+                            {/* Team Logo */}
+                            <img
+                              src={teamLogoUrl(team.abbr)}
+                              alt={`${team.city} ${team.name}`}
+                              className="w-10 h-10 object-contain flex-shrink-0"
+                              loading="lazy"
+                            />
+                            <div className="min-w-0 flex-grow">
+                              <p className="font-bold text-sm text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                                {team.city} {team.name}
                               </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                {team.name}
-                              </p>
-                            </div>
-                            <span className="text-xs font-mono font-bold text-gray-400 dark:text-gray-500 mt-0.5">
-                              {team.abbr}
-                            </span>
-                          </div>
-
-                          {picks > 0 ? (
-                            <div className="flex items-center gap-3 mt-2 text-xs">
-                              <span className="text-gray-500 dark:text-gray-400">
-                                <span className="font-semibold text-gray-700 dark:text-gray-300">{picks}</span> picks
-                              </span>
-                              {grade && (
-                                <span className={`font-bold ${gradeColor}`}>
-                                  {grade}
-                                </span>
+                              {picks > 0 ? (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    <span className="font-semibold text-gray-700 dark:text-gray-300">{picks}</span> picks
+                                  </span>
+                                  {grade && (
+                                    <span className={`font-bold ${gradeColor}`}>
+                                      {grade}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-400 dark:text-gray-600">
+                                  No draft data
+                                </p>
                               )}
                             </div>
-                          ) : (
-                            <p className="mt-2 text-xs text-gray-400 dark:text-gray-600">
-                              No draft data
-                            </p>
-                          )}
+                          </div>
                         </Link>
                       );
                     })}

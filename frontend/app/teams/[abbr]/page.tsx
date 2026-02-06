@@ -9,6 +9,14 @@ import MemberLink from '@/components/MemberLink';
 import PlayerLink from '@/components/PlayerLink';
 import { getNFLTeamDetail } from '@/lib/api';
 
+// ESPN uses slightly different abbreviations for some teams
+const ESPN_ABBR: Record<string, string> = { WAS: 'wsh' };
+
+function teamLogoUrl(abbr: string): string {
+  const espn = ESPN_ABBR[abbr] || abbr.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${espn}.png`;
+}
+
 const GRADE_COLORS: Record<string, string> = {
   'A+': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
   'A': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
@@ -100,16 +108,20 @@ export default function NFLTeamDetailPage() {
       {/* Team Header */}
       <div className="card">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <img
+              src={teamLogoUrl(data.abbr)}
+              alt={fullName}
+              className="w-16 h-16 object-contain"
+            />
+            <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {data.abbr}
+                {fullName}
               </h1>
-              <span className="text-lg text-gray-500 dark:text-gray-400">{fullName}</span>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">
+                Draft history across the Top Pot League
+              </p>
             </div>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-              Draft history across the Top Pot League
-            </p>
           </div>
           {gradeClass && (
             <div className="flex items-center gap-2">

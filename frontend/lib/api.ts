@@ -257,7 +257,7 @@ export async function getPlayerHistory(playerName: string) {
 
 // NFL Team endpoints
 export async function getNFLTeams() {
-  return fetchAPI<any>('/api/nfl-teams');
+  return fetchAPI<any>('/api/nfl-teams/');
 }
 
 export async function getNFLTeamDetail(abbr: string) {
