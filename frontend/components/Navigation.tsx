@@ -8,7 +8,7 @@ import DarkModeToggle from './DarkModeToggle';
 const navItems = [
   { href: '/', label: 'Home' },
   { href: '/standings', label: 'Standings' },
-  { href: '/members', label: 'Members' },
+  { href: '/members', label: 'Managers' },
   { href: '/drafts', label: 'Drafts' },
   { href: '/players', label: 'Players' },
   { href: '/teams', label: 'NFL Teams' },

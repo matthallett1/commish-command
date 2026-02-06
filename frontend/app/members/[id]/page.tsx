@@ -125,9 +125,9 @@ export default function MemberProfilePage() {
   if (!member) {
     return (
       <div className="text-center py-12">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Member Not Found</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manager Not Found</h1>
         <Link href="/members" className="mt-4 btn-primary inline-block">
-          Back to Members
+          Back to Managers
         </Link>
       </div>
     );
@@ -137,7 +137,7 @@ export default function MemberProfilePage() {
     <div className="space-y-8">
       {/* Back Link */}
       <Link href="/members" className="text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1">
-        ← Back to Members
+        ← Back to Managers
       </Link>
 
       {/* Header */}
@@ -148,7 +148,7 @@ export default function MemberProfilePage() {
               {member.name}
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              League member since {member.seasons?.[member.seasons.length - 1]?.year || 'N/A'}
+              Manager since {member.seasons?.[member.seasons.length - 1]?.year || 'N/A'}
             </p>
             {/* Achievement Badges */}
             {achievements.length > 0 && (

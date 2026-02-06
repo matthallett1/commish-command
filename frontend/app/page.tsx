@@ -99,7 +99,7 @@ export default function HomePage() {
           }
         />
         <StatCard
-          title="League Members"
+          title="League Managers"
           value={totalMembers}
           icon={
             <svg className="w-6 h-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,8 +179,8 @@ export default function HomePage() {
         <Link href="/members" className="card hover:shadow-xl transition-shadow group">
           <div className="text-center">
             <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">👥</div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">Members</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Player profiles</p>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Managers</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Manager profiles</p>
           </div>
         </Link>
         <Link href="/records" className="card hover:shadow-xl transition-shadow group">
