@@ -65,7 +65,7 @@ async def startup_event():
     init_db()
     
     # Include routers
-    from api.routes import leagues, members, matchups, records, ai, drafts, players
+    from api.routes import leagues, members, matchups, records, ai, drafts, players, nfl_teams
     app.include_router(leagues.router, prefix="/api/leagues", tags=["Leagues"])
     app.include_router(members.router, prefix="/api/members", tags=["Members"])
     app.include_router(matchups.router, prefix="/api/matchups", tags=["Matchups"])
@@ -73,6 +73,7 @@ async def startup_event():
     app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
     app.include_router(drafts.router, prefix="/api/drafts", tags=["Drafts"])
     app.include_router(players.router, prefix="/api/players", tags=["Players"])
+    app.include_router(nfl_teams.router, prefix="/api/nfl-teams", tags=["NFL Teams"])
 
 
 @app.get("/", tags=["Root"])
@@ -91,6 +92,7 @@ async def root():
             "ai": "/api/ai",
             "drafts": "/api/drafts",
             "players": "/api/players",
+            "nfl_teams": "/api/nfl-teams",
         }
     }
 

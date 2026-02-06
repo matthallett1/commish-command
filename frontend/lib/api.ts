@@ -255,6 +255,15 @@ export async function getPlayerHistory(playerName: string) {
   return fetchAPI<any>(`/api/players/history/${encodeURIComponent(playerName)}`);
 }
 
+// NFL Team endpoints
+export async function getNFLTeams() {
+  return fetchAPI<any>('/api/nfl-teams');
+}
+
+export async function getNFLTeamDetail(abbr: string) {
+  return fetchAPI<any>(`/api/nfl-teams/${encodeURIComponent(abbr)}`);
+}
+
 // League history endpoint (for "This Week in League History" widget)
 export async function getLeagueHistory(): Promise<any> {
   return fetchAPI('/api/matchups/history-this-week');

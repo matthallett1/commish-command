@@ -11,6 +11,7 @@ const navItems = [
   { href: '/members', label: 'Members' },
   { href: '/drafts', label: 'Drafts' },
   { href: '/players', label: 'Players' },
+  { href: '/teams', label: 'NFL Teams' },
   { href: '/records', label: 'Records' },
   { href: '/matchups', label: 'Matchups' },
 ];
