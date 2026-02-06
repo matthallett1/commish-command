@@ -6,45 +6,131 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { getNFLTeams } from '@/lib/api';
 
 const GRADE_COLORS: Record<string, string> = {
-  'A+': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  'A': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  'B': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  'C': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-  'D': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  'F': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  'A+': 'text-emerald-600 dark:text-emerald-400',
+  'A': 'text-green-600 dark:text-green-400',
+  'B': 'text-blue-600 dark:text-blue-400',
+  'C': 'text-yellow-600 dark:text-yellow-400',
+  'D': 'text-orange-600 dark:text-orange-400',
+  'F': 'text-red-600 dark:text-red-400',
 };
 
-// NFL team full names
-const NFL_NAMES: Record<string, string> = {
-  ARI: 'Arizona Cardinals', ATL: 'Atlanta Falcons', BAL: 'Baltimore Ravens',
-  BUF: 'Buffalo Bills', CAR: 'Carolina Panthers', CHI: 'Chicago Bears',
-  CIN: 'Cincinnati Bengals', CLE: 'Cleveland Browns', DAL: 'Dallas Cowboys',
-  DEN: 'Denver Broncos', DET: 'Detroit Lions', GB: 'Green Bay Packers',
-  HOU: 'Houston Texans', IND: 'Indianapolis Colts', JAX: 'Jacksonville Jaguars',
-  KC: 'Kansas City Chiefs', LAC: 'Los Angeles Chargers', LAR: 'Los Angeles Rams',
-  LV: 'Las Vegas Raiders', MIA: 'Miami Dolphins', MIN: 'Minnesota Vikings',
-  NE: 'New England Patriots', NO: 'New Orleans Saints', NYG: 'New York Giants',
-  NYJ: 'New York Jets', PHI: 'Philadelphia Eagles', PIT: 'Pittsburgh Steelers',
-  SEA: 'Seattle Seahawks', SF: 'San Francisco 49ers', TB: 'Tampa Bay Buccaneers',
-  TEN: 'Tennessee Titans', WAS: 'Washington Commanders',
-  // Legacy abbreviations
-  OAK: 'Oakland Raiders', SD: 'San Diego Chargers', STL: 'St. Louis Rams',
-  JAC: 'Jacksonville Jaguars',
-};
+interface Division {
+  name: string;
+  teams: { abbr: string; name: string; city: string }[];
+}
 
-type SortField = 'total_picks' | 'avg_grade' | 'total_points' | 'unique_managers';
+interface Conference {
+  name: string;
+  color: string;
+  darkColor: string;
+  accentBg: string;
+  divisions: Division[];
+}
+
+const CONFERENCES: Conference[] = [
+  {
+    name: 'AFC',
+    color: 'text-red-700',
+    darkColor: 'dark:text-red-400',
+    accentBg: 'from-red-500/10 to-red-600/5 dark:from-red-500/10 dark:to-red-900/5',
+    divisions: [
+      {
+        name: 'East',
+        teams: [
+          { abbr: 'BUF', name: 'Bills', city: 'Buffalo' },
+          { abbr: 'MIA', name: 'Dolphins', city: 'Miami' },
+          { abbr: 'NE', name: 'Patriots', city: 'New England' },
+          { abbr: 'NYJ', name: 'Jets', city: 'NY Jets' },
+        ],
+      },
+      {
+        name: 'North',
+        teams: [
+          { abbr: 'BAL', name: 'Ravens', city: 'Baltimore' },
+          { abbr: 'CIN', name: 'Bengals', city: 'Cincinnati' },
+          { abbr: 'CLE', name: 'Browns', city: 'Cleveland' },
+          { abbr: 'PIT', name: 'Steelers', city: 'Pittsburgh' },
+        ],
+      },
+      {
+        name: 'South',
+        teams: [
+          { abbr: 'HOU', name: 'Texans', city: 'Houston' },
+          { abbr: 'IND', name: 'Colts', city: 'Indianapolis' },
+          { abbr: 'JAX', name: 'Jaguars', city: 'Jacksonville' },
+          { abbr: 'TEN', name: 'Titans', city: 'Tennessee' },
+        ],
+      },
+      {
+        name: 'West',
+        teams: [
+          { abbr: 'DEN', name: 'Broncos', city: 'Denver' },
+          { abbr: 'KC', name: 'Chiefs', city: 'Kansas City' },
+          { abbr: 'LV', name: 'Raiders', city: 'Las Vegas' },
+          { abbr: 'LAC', name: 'Chargers', city: 'LA Chargers' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'NFC',
+    color: 'text-blue-700',
+    darkColor: 'dark:text-blue-400',
+    accentBg: 'from-blue-500/10 to-blue-600/5 dark:from-blue-500/10 dark:to-blue-900/5',
+    divisions: [
+      {
+        name: 'East',
+        teams: [
+          { abbr: 'DAL', name: 'Cowboys', city: 'Dallas' },
+          { abbr: 'NYG', name: 'Giants', city: 'NY Giants' },
+          { abbr: 'PHI', name: 'Eagles', city: 'Philadelphia' },
+          { abbr: 'WAS', name: 'Commanders', city: 'Washington' },
+        ],
+      },
+      {
+        name: 'North',
+        teams: [
+          { abbr: 'CHI', name: 'Bears', city: 'Chicago' },
+          { abbr: 'DET', name: 'Lions', city: 'Detroit' },
+          { abbr: 'GB', name: 'Packers', city: 'Green Bay' },
+          { abbr: 'MIN', name: 'Vikings', city: 'Minnesota' },
+        ],
+      },
+      {
+        name: 'South',
+        teams: [
+          { abbr: 'ATL', name: 'Falcons', city: 'Atlanta' },
+          { abbr: 'CAR', name: 'Panthers', city: 'Carolina' },
+          { abbr: 'NO', name: 'Saints', city: 'New Orleans' },
+          { abbr: 'TB', name: 'Buccaneers', city: 'Tampa Bay' },
+        ],
+      },
+      {
+        name: 'West',
+        teams: [
+          { abbr: 'ARI', name: 'Cardinals', city: 'Arizona' },
+          { abbr: 'LAR', name: 'Rams', city: 'LA Rams' },
+          { abbr: 'SF', name: '49ers', city: 'San Francisco' },
+          { abbr: 'SEA', name: 'Seahawks', city: 'Seattle' },
+        ],
+      },
+    ],
+  },
+];
 
 export default function TeamsPage() {
   const [loading, setLoading] = useState(true);
-  const [teams, setTeams] = useState<any[]>([]);
-  const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('total_picks');
+  const [teamData, setTeamData] = useState<Record<string, any>>({});
 
   useEffect(() => {
     async function load() {
       try {
         const data = await getNFLTeams();
-        setTeams(data.teams || []);
+        const map: Record<string, any> = {};
+        for (const t of data.teams || []) {
+          map[t.abbr] = t;
+        }
+        setTeamData(map);
       } catch (err) {
         console.error('Failed to load NFL teams:', err);
       } finally {
@@ -54,26 +140,10 @@ export default function TeamsPage() {
     load();
   }, []);
 
-  const gradeOrder: Record<string, number> = { 'A+': 6, 'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1 };
-
-  const filtered = teams
-    .filter((t) => {
-      if (!filter) return true;
-      const q = filter.toLowerCase();
-      const name = (NFL_NAMES[t.abbr] || t.abbr).toLowerCase();
-      return t.abbr.toLowerCase().includes(q) || name.includes(q);
-    })
-    .sort((a, b) => {
-      if (sortField === 'avg_grade') {
-        return (gradeOrder[b.avg_grade] || 0) - (gradeOrder[a.avg_grade] || 0);
-      }
-      return (b[sortField] || 0) - (a[sortField] || 0);
-    });
-
   if (loading) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="text-center py-4">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
@@ -84,90 +154,78 @@ export default function TeamsPage() {
         </p>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 max-w-3xl mx-auto">
-        <div className="relative flex-grow">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+      {/* Conference Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {CONFERENCES.map((conf) => (
+          <div key={conf.name}>
+            {/* Conference Header */}
+            <div className={`flex items-center gap-3 mb-5`}>
+              <h2 className={`text-2xl font-extrabold tracking-tight ${conf.color} ${conf.darkColor}`}>
+                {conf.name}
+              </h2>
+              <div className="flex-grow h-px bg-gray-200 dark:bg-slate-700" />
+            </div>
+
+            {/* Divisions */}
+            <div className="space-y-6">
+              {conf.divisions.map((div) => (
+                <div key={div.name}>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 pl-1">
+                    {conf.name} {div.name}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {div.teams.map((team) => {
+                      const stats = teamData[team.abbr];
+                      const picks = stats?.total_picks || 0;
+                      const grade = stats?.avg_grade;
+                      const gradeColor = grade ? GRADE_COLORS[grade] : '';
+
+                      return (
+                        <Link
+                          key={team.abbr}
+                          href={`/teams/${team.abbr}`}
+                          className={`group relative overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700 bg-gradient-to-br ${conf.accentBg} p-3 hover:shadow-lg hover:border-gray-300 dark:hover:border-slate-500 transition-all`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                                {team.city}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                {team.name}
+                              </p>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-gray-400 dark:text-gray-500 mt-0.5">
+                              {team.abbr}
+                            </span>
+                          </div>
+
+                          {picks > 0 ? (
+                            <div className="flex items-center gap-3 mt-2 text-xs">
+                              <span className="text-gray-500 dark:text-gray-400">
+                                <span className="font-semibold text-gray-700 dark:text-gray-300">{picks}</span> picks
+                              </span>
+                              {grade && (
+                                <span className={`font-bold ${gradeColor}`}>
+                                  {grade}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-xs text-gray-400 dark:text-gray-600">
+                              No draft data
+                            </p>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter teams..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-        </div>
-        <select
-          value={sortField}
-          onChange={(e) => setSortField(e.target.value as SortField)}
-          className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500"
-        >
-          <option value="total_picks">Most Drafted</option>
-          <option value="avg_grade">Best Grade</option>
-          <option value="total_points">Most Points</option>
-          <option value="unique_managers">Most Managers</option>
-        </select>
+        ))}
       </div>
-
-      {/* Teams Grid */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">No teams found.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
-          {filtered.map((team) => {
-            const fullName = NFL_NAMES[team.abbr] || team.abbr;
-            const gradeClass = team.avg_grade ? GRADE_COLORS[team.avg_grade] : null;
-
-            return (
-              <Link
-                key={team.abbr}
-                href={`/teams/${team.abbr}`}
-                className="card hover:shadow-lg transition-shadow group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                      {team.abbr}
-                    </span>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{fullName}</p>
-                  </div>
-                  {gradeClass && (
-                    <span className={`px-2 py-0.5 rounded text-sm font-bold ${gradeClass}`}>
-                      {team.avg_grade}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                    <p className="font-bold text-gray-900 dark:text-white">{team.total_picks}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Picks</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                    <p className="font-bold text-gray-900 dark:text-white">{team.total_points.toLocaleString()}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Points</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
-                    <p className="font-bold text-gray-900 dark:text-white">{team.unique_managers}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Mgrs</p>
-                  </div>
-                </div>
-
-                {team.top_position && (
-                  <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                    Top drafted position: {team.top_position}
-                  </p>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
