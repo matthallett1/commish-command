@@ -246,6 +246,15 @@ export async function getWaiverWireWins(year: number, limit = 15) {
   return fetchAPI<any>(`/api/drafts/waiver-wire-wins/${year}?limit=${limit}`);
 }
 
+// Player endpoints
+export async function searchPlayers(query: string) {
+  return fetchAPI<any>(`/api/players/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function getPlayerHistory(playerName: string) {
+  return fetchAPI<any>(`/api/players/history/${encodeURIComponent(playerName)}`);
+}
+
 // League history endpoint (for "This Week in League History" widget)
 export async function getLeagueHistory(): Promise<any> {
   return fetchAPI('/api/matchups/history-this-week');

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import MemberLink from '@/components/MemberLink';
+import PlayerLink from '@/components/PlayerLink';
 import AIBlockInsight from '@/components/AIBlockInsight';
 import {
   getDraftSeasons,
@@ -386,7 +387,7 @@ export default function DraftsPage() {
                           </td>
                           <td className="px-3 py-2 text-gray-400">Rd {pick.round}</td>
                           <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
-                            {pick.player_name}
+                            <PlayerLink name={pick.player_name} />
                           </td>
                           <td className="px-3 py-2">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -457,8 +458,8 @@ export default function DraftsPage() {
                             {pick.player_position}
                           </span>
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white text-sm">
-                              {pick.player_name}
+                            <p className="font-medium text-sm">
+                              <PlayerLink name={pick.player_name} />
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {pick.member_id ? (
@@ -514,8 +515,8 @@ export default function DraftsPage() {
                             {pick.player_position}
                           </span>
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white text-sm">
-                              {pick.player_name}
+                            <p className="font-medium text-sm">
+                              <PlayerLink name={pick.player_name} />
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               {pick.member_id ? (
@@ -613,8 +614,8 @@ export default function DraftsPage() {
                                 {tx.type}
                               </span>
                             </td>
-                            <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
-                              {tx.player_name}
+                            <td className="px-3 py-2 font-medium">
+                              <PlayerLink name={tx.player_name} />
                             </td>
                             <td className="px-3 py-2">
                               {tx.player_position && (

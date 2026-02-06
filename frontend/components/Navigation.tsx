@@ -10,6 +10,7 @@ const navItems = [
   { href: '/standings', label: 'Standings' },
   { href: '/members', label: 'Members' },
   { href: '/drafts', label: 'Drafts' },
+  { href: '/players', label: 'Players' },
   { href: '/records', label: 'Records' },
   { href: '/matchups', label: 'Matchups' },
 ];
@@ -75,7 +76,7 @@ export default function Navigation() {
                 key={item.href}
                 href={item.href}
                 className={`nav-link ${
-                  pathname === item.href ? 'nav-link-active' : ''
+                  (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) ? 'nav-link-active' : ''
                 }`}
               >
                 {item.label}
@@ -114,7 +115,7 @@ export default function Navigation() {
                 key={item.href}
                 href={item.href}
                 className={`block px-3 py-2 rounded-md text-base font-medium ${
-                  pathname === item.href
+                  (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
                     ? 'bg-primary-100 text-primary-700 dark:bg-slate-700 dark:text-primary-400'
                     : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-slate-700'
                 }`}
