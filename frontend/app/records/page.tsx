@@ -5,6 +5,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import MemberLink from '@/components/MemberLink';
 import AIBlockInsight from '@/components/AIBlockInsight';
+import InfoTooltip from '@/components/InfoTooltip';
 import { getAllTimeRecords, getH2HMatrix, getLuckAnalysis, getPowerRankings, getAISummary, checkAIStatus } from '@/lib/api';
 
 export default function RecordsPage() {
@@ -283,8 +284,9 @@ export default function RecordsPage() {
         {activeTab === 'luck' && luckAnalysis?.analysis && (
           <div className="card">
             <h2 className="card-header">Luck Analysis</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-1">
               Compares actual wins to expected wins based on weekly scores
+              <InfoTooltip text="Expected wins = how many wins you'd have if you played every team every week. If your actual wins are higher, you got lucky with your schedule. Lower? The fantasy gods weren't on your side." />
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -293,9 +295,15 @@ export default function RecordsPage() {
                     <th className="px-4 py-3">Member</th>
                     <th className="px-4 py-3 text-center">Actual W</th>
                     <th className="px-4 py-3 text-center">Expected W</th>
-                    <th className="px-4 py-3 text-center">Luck Factor</th>
-                    <th className="px-4 py-3 text-center">Lucky Wins</th>
-                    <th className="px-4 py-3 text-center">Unlucky Losses</th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Luck Factor <InfoTooltip text="Actual wins minus expected wins. Positive = you won more games than your scoring deserved. Negative = you deserved better." /></span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Lucky Wins <InfoTooltip text="Games you won despite scoring below the league median that week. Your opponent just happened to score even worse." /></span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Unlucky Losses <InfoTooltip text="Games you lost despite scoring above the league median that week. You would have beaten most other teams, but ran into a buzzsaw." /></span>
+                    </th>
                     <th className="px-4 py-3 text-center">Rating</th>
                   </tr>
                 </thead>
@@ -339,8 +347,9 @@ export default function RecordsPage() {
         {activeTab === 'power' && powerRankings && (
           <div className="card">
             <h2 className="card-header">All-Time Power Rankings</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-1">
               Weighted score based on win %, championships, playoff %, points, and longevity
+              <InfoTooltip text="Power Score combines multiple factors: win percentage (35%), championships (25%), playoff rate (20%), points per game (10%), and seasons played (10%). Think of it as a manager's all-time fantasy football GPA." />
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -348,11 +357,17 @@ export default function RecordsPage() {
                   <tr className="table-header">
                     <th className="px-4 py-3 w-16">Rank</th>
                     <th className="px-4 py-3">Member</th>
-                    <th className="px-4 py-3 text-center">Power Score</th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Power Score <InfoTooltip text="A composite rating (0–100) combining win %, titles, playoffs, scoring, and longevity. Higher = more dominant all-time." /></span>
+                    </th>
                     <th className="px-4 py-3 text-center">Seasons</th>
                     <th className="px-4 py-3 text-center">Championships</th>
-                    <th className="px-4 py-3 text-center">Win %</th>
-                    <th className="px-4 py-3 text-center">Playoff %</th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Win % <InfoTooltip text="All-time regular season win percentage across all seasons played." /></span>
+                    </th>
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">Playoff % <InfoTooltip text="Percentage of seasons this manager made the playoffs." /></span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-slate-600">

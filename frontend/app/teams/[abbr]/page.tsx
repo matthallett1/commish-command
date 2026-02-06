@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import StatCard from '@/components/StatCard';
 import MemberLink from '@/components/MemberLink';
 import PlayerLink from '@/components/PlayerLink';
+import InfoTooltip from '@/components/InfoTooltip';
 import { getNFLTeamDetail } from '@/lib/api';
 
 // ESPN uses slightly different abbreviations for some teams
@@ -125,7 +126,10 @@ export default function NFLTeamDetailPage() {
           </div>
           {gradeClass && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Avg Draft Grade</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                Avg Draft Grade
+                <InfoTooltip text="Average letter grade for all draft picks of this team. Grades compare where a player was drafted vs. how they actually performed that season. A+ = huge steal, F = major bust." />
+              </span>
               <span className={`px-3 py-1.5 rounded-lg text-lg font-bold ${gradeClass}`}>
                 {data.avg_grade}
               </span>
@@ -168,6 +172,7 @@ export default function NFLTeamDetailPage() {
           <div className="card">
             <h2 className="card-header flex items-center gap-2">
               <span className="text-xl">🏠</span> Homer Leaderboard
+              <InfoTooltip text="Ranks managers by how many times they've drafted players from this NFL team. A high homer score means this manager really loves this franchise." />
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Who drafts the most {fullName} players?

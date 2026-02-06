@@ -1,4 +1,5 @@
 import MemberLink from './MemberLink';
+import InfoTooltip from './InfoTooltip';
 
 interface LeaderboardEntry {
   rank?: number;
@@ -14,17 +15,22 @@ interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   valueLabel?: string;
   showRank?: boolean;
+  titleTooltip?: string;
 }
 
 export default function LeaderboardTable({ 
   title, 
   entries, 
   valueLabel = 'Value',
-  showRank = true 
+  showRank = true,
+  titleTooltip,
 }: LeaderboardTableProps) {
   return (
     <div className="card">
-      <h3 className="card-header">{title}</h3>
+      <h3 className="card-header flex items-center gap-1">
+        {title}
+        {titleTooltip && <InfoTooltip text={titleTooltip} />}
+      </h3>
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>

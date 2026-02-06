@@ -7,6 +7,7 @@ import ChampionBanner from '@/components/ChampionBanner';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import LeagueHistoryWidget from '@/components/LeagueHistoryWidget';
+import InfoTooltip from '@/components/InfoTooltip';
 import { getLeague, getChampions, getMembers, getPowerRankings } from '@/lib/api';
 
 export default function HomePage() {
@@ -152,6 +153,7 @@ export default function HomePage() {
         {powerRankings?.rankings && (
           <LeaderboardTable
             title="All-Time Power Rankings"
+            titleTooltip="A composite score (0–100) factoring in win %, championships, playoff rate, scoring, and seasons played. The ultimate measure of who runs this league."
             entries={powerRankings.rankings.slice(0, 10).map((r: any) => ({
               rank: r.rank,
               name: r.member,

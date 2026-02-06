@@ -5,6 +5,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import MemberLink from '@/components/MemberLink';
 import PlayerLink from '@/components/PlayerLink';
 import AIBlockInsight from '@/components/AIBlockInsight';
+import InfoTooltip from '@/components/InfoTooltip';
 import {
   getDraftSeasons,
   getDraftBoard,
@@ -278,18 +279,27 @@ export default function DraftsPage() {
                         </div>
                         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
                           <p className="font-bold text-green-700 dark:text-green-400">{card.steals_count}</p>
-                          <p className="text-xs text-green-600 dark:text-green-500">Steals</p>
+                          <p className="text-xs text-green-600 dark:text-green-500 inline-flex items-center gap-0.5">
+                            Steals
+                            <InfoTooltip text="Players drafted late who outperformed their draft position — a pick that gave you way more value than expected." />
+                          </p>
                         </div>
                         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
                           <p className="font-bold text-red-700 dark:text-red-400">{card.busts_count}</p>
-                          <p className="text-xs text-red-600 dark:text-red-500">Busts</p>
+                          <p className="text-xs text-red-600 dark:text-red-500 inline-flex items-center gap-0.5">
+                            Busts
+                            <InfoTooltip text="Players drafted early who massively underperformed — the picks that haunt your dreams." />
+                          </p>
                         </div>
                       </div>
 
                       {card.total_season_points > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-500 dark:text-gray-400">Total Draft Points</span>
+                            <span className="text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
+                              Total Draft Points
+                              <InfoTooltip text="Combined season fantasy points scored by all players this manager drafted. Higher = your draft picks actually produced on the field." />
+                            </span>
                             <span className="font-bold text-gray-900 dark:text-white">
                               {card.total_season_points.toFixed(1)}
                             </span>
@@ -368,9 +378,15 @@ export default function DraftsPage() {
                       <th className="px-3 py-2">Pos</th>
                       <th className="px-3 py-2">Team</th>
                       <th className="px-3 py-2">Manager</th>
-                      <th className="px-3 py-2 text-center">ADP</th>
-                      <th className="px-3 py-2 text-center">Pts</th>
-                      <th className="px-3 py-2 text-center">Grade</th>
+                      <th className="px-3 py-2 text-center">
+                        <span className="inline-flex items-center gap-1">ADP <InfoTooltip text="Average Draft Position — where this player was typically drafted across all fantasy leagues that year." /></span>
+                      </th>
+                      <th className="px-3 py-2 text-center">
+                        <span className="inline-flex items-center gap-1">Pts <InfoTooltip text="Total fantasy points this player scored during the regular season." /></span>
+                      </th>
+                      <th className="px-3 py-2 text-center">
+                        <span className="inline-flex items-center gap-1">Grade <InfoTooltip text="Compares where you drafted vs. how the player performed. A+ = massive steal, F = wasted pick. Based on overall scoring rank vs. draft position." /></span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-slate-600">
@@ -436,8 +452,9 @@ export default function DraftsPage() {
                 <h2 className="card-header flex items-center gap-2">
                   <span className="text-2xl">💎</span> Draft Steals
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-1">
                   Best value picks relative to draft position
+                  <InfoTooltip text="Steals are players who scored way more fantasy points than their draft position predicted. Think: late-round gems that won you weeks." />
                 </p>
                 {stealsAndBusts.steals?.length === 0 ? (
                   <p className="text-gray-400 text-sm">No graded data available</p>
@@ -493,8 +510,9 @@ export default function DraftsPage() {
                 <h2 className="card-header flex items-center gap-2">
                   <span className="text-2xl">💀</span> Draft Busts
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-1">
                   Worst value picks relative to draft position
+                  <InfoTooltip text="Busts are players drafted early who flopped hard. The higher the draft pick, the bigger the embarrassment. We will never forget." />
                 </p>
                 {stealsAndBusts.busts?.length === 0 ? (
                   <p className="text-gray-400 text-sm">No graded data available</p>

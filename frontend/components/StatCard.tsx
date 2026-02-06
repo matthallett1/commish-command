@@ -1,3 +1,5 @@
+import InfoTooltip from '@/components/InfoTooltip';
+
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -5,14 +7,18 @@ interface StatCardProps {
   icon?: React.ReactNode;
   trend?: 'up' | 'down' | 'neutral';
   trendValue?: string;
+  tooltip?: string;
 }
 
-export default function StatCard({ title, value, subtitle, icon, trend, trendValue }: StatCardProps) {
+export default function StatCard({ title, value, subtitle, icon, trend, trendValue, tooltip }: StatCardProps) {
   return (
     <div className="card">
       <div className="flex items-start justify-between">
         <div>
-          <p className="stat-label">{title}</p>
+          <p className="stat-label flex items-center gap-1">
+            {title}
+            {tooltip && <InfoTooltip text={tooltip} />}
+          </p>
           <p className="stat-value mt-1">{value}</p>
           {subtitle && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
