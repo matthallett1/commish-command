@@ -1000,11 +1000,10 @@ async def ask_commish(request: AskCommishRequest):
         win_pct_leaders = sorted(qualified, key=lambda x: x["win_pct"], reverse=True)[:5]
         
         # ── Draft data ──────────────────────────────────────────────────
-        # Include rounds 1-3 picks for every member across all seasons so
-        # the AI can answer questions like "who has Mike drafted in round 1?"
+        # Include ALL draft picks for every member across all seasons so
+        # the AI can answer any draft-related question.
         draft_picks = (
             db.query(DraftPick)
-            .filter(DraftPick.round <= 3)
             .order_by(DraftPick.season_id, DraftPick.pick_number)
             .all()
         )
@@ -1124,7 +1123,7 @@ async def ask_commish(request: AskCommishRequest):
 - Closest game margin: {records_data.get('closest_game_margin', 'N/A')}
 - Total matchups played: {records_data.get('total_matchups', 0)}
 
-=== DRAFT PICKS (Rounds 1-3 by Member) ===
+=== DRAFT PICKS (All Rounds by Member) ===
 {draft_context}
 
 {('=== DRAFT STEALS & BUSTS ===' + chr(10) + steals_busts_context) if steals_busts_context else ''}
