@@ -397,28 +397,12 @@ def calculate_draft_grades(db: Session, season_id: int) -> List[Dict[str, Any]]:
     if not scored:
         return []
     
-    # Calculate position-based rankings for grading
-    position_groups: Dict[str, List[DraftPick]] = defaultdict(list)
-    for p in scored:
-        pos = (p.player_position or "FLEX").upper()
-        # Normalize to broad position groups
-        if pos in ("QB",):
-            group = "QB"
-        elif pos in ("RB",):
-            group = "RB"
-        elif pos in ("WR",):
-            group = "WR"
-        elif pos in ("TE",):
-            group = "TE"
-        else:
-            group = "FLEX"
-        position_groups[group].append(p)
-    
-    # Rank within each position group by season points
-    for group, group_picks in position_groups.items():
-        group_picks.sort(key=lambda p: -(p.season_points or 0))
-        for rank, p in enumerate(group_picks, 1):
-            p.season_rank = rank
+    # Rank ALL scored picks by season points (overall rank, not per-position).
+    # This puts season_rank on the same 1-N scale as pick_number so the
+    # grade thresholds (+/-10, +/-30, +/-50) produce a meaningful spread.
+    scored.sort(key=lambda p: -(p.season_points or 0))
+    for rank, p in enumerate(scored, 1):
+        p.season_rank = rank
     
     # Calculate value & grade
     for p in scored:
